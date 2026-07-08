@@ -7,7 +7,7 @@ color 0A
 set "ROOT=%~dp0"
 set "VENV=%ROOT%.venv"
 set "PYTHON=%VENV%\Scripts\python.exe"
-set "SERVER=%ROOT%tidda_c2.py"
+set "SERVER=%ROOT%tidda_lightweight_swarm.py"
 set "FRONTEND=%ROOT%html\TIDDA_GCS_real h ai wala.html"
 set "PORT=8000"
 
@@ -37,7 +37,7 @@ echo [OK] Found venv python: %PYTHON%
 
 :: ---- Verify server script exists ----
 if not exist "%SERVER%" (
-    echo [ERROR] tidda_c2.py not found at:
+    echo [ERROR] tidda_lightweight_swarm.py not found at:
     echo         %SERVER%
     pause
     exit /b 1
