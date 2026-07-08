@@ -1,3 +1,7 @@
+
+One operator. One command interface. Multiple autonomous agents.
+
+
 # TIDDA — Tactical Intelligent Drone Defense Architecture
 
 **An autonomous drone swarm command & control platform for surveillance, threat detection, and coordinated multi-agent operations.**
@@ -84,7 +88,30 @@ Actively in development. This is a continuously evolving platform, not a one-off
 - Indoor positioning and mapping capabilities
 - Physical hardware platform (long-term)
 
----
 
-## License
+## Engineering Goals
+
+TIDDA is developed to investigate practical challenges in:
+
+- Multi-agent autonomy
+- Real-time distributed systems
+- Human-machine teaming
+- AI-assisted situational awareness
+- Fault-tolerant swarm communication
+- Simulation-first robotics development
+
+MARKDOWNS;;;
+
+![Python](https://img.shields.io/badge/Python-3.10-blue)
+
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
+
+![React](https://img.shields.io/badge/React-Frontend-61DAFB)
+
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Computer%20Vision-red)
+
+![Status](https://img.shields.io/badge/Status-Active%20Development-orange)
+
+![License](https://img.shields.io/badge/License-MIT-blue)
+
 
