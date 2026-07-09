@@ -27,6 +27,7 @@ from weapon_systems import (
     WeaponRegistry,
 )
 from swarm_logic import GridPlanner, WakeTriggerType
+from mobile_node import MobileNodeRegistry, NODE_TIMEOUT_S  # Step 2a
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -106,7 +107,7 @@ BROADCAST_TICK_S: float = 0.5
 CONSOLE_TICK_S: float = 5.0
 
 # WebSocket server binding
-WS_HOST: str = "localhost"
+WS_HOST: str = "0.0.0.0"   # Listen on all interfaces — required for LAN phone clients
 WS_PORT: int = 8000
 
 # ── Groq AI proxy (server-side, key from environment) ─────────────
@@ -870,6 +871,9 @@ _connected: Set[websockets.WebSocketServerProtocol] = set()
 # Swarm reference — set in main() before server starts
 _swarm_ref: List[DroneUnit] = []
 
+# Mobile node registry — phones connect here; physics_loop never touches it
+_mobile_registry: MobileNodeRegistry = MobileNodeRegistry()  # Step 2b
+
 
 def _find_drone(drone_id: str) -> Optional[DroneUnit]:
     """Look up a drone by its ID string (e.g. 'TIDDA-01')."""
@@ -1176,38 +1180,71 @@ async def _ws_handler(
     path: str = "",
 ) -> None:
     """
-    Handle a single GCS dashboard WebSocket connection.
+    Handle a single GCS dashboard WebSocket connection OR a mobile node.
 
     Bulletproof:
       • Wrapped in try/except so a client disconnect never propagates.
       • Cleans up the connection set in `finally` so stale refs are impossible.
       • Processes incoming commands (set_waypoint, ai_query, etc.).
+
+    Step 2c — Mobile routing:
+      First message with type="node_register" identifies a phone; it is then
+      removed from _connected (no swarm broadcast to phones) and all subsequent
+      messages are routed to _mobile_registry instead of the dashboard handler.
     """
     addr = getattr(websocket, "remote_address", "unknown")
+    # Optimistically add as a dashboard client; removed below if it's a phone.
     _connected.add(websocket)
-    log("WS", f"🟢 Dashboard connected: {addr}  (clients: {len(_connected)})")
+    log("WS", f"🟢 Connection from {addr}  (dashboard clients: {len(_connected)})")
+
+    # Local state — set on first node_register message from a phone.
+    mobile_node_id: Optional[str] = None
 
     try:
         async for message in websocket:
-            # Process any incoming command from the GCS
-            if isinstance(message, str) and message.strip():
-                try:
-                    msg = json.loads(message)
-                except (json.JSONDecodeError, TypeError):
-                    msg = {}
+            if not isinstance(message, str) or not message.strip():
+                continue
 
-                # AI query — spawn as background task (non-blocking)
-                if (msg.get("type") == "command"
-                        and msg.get("action") == "ai_query"):
-                    asyncio.create_task(_handle_ai_query(
-                        websocket,
-                        msg.get("prompt", ""),
-                        msg.get("history", []),
-                        msg.get("telemetry", {}),
-                    ))
-                else:
-                    _handle_command(message)
-                    _handle_v2_command(message, _swarm_ref)  # V2.0 commands
+            try:
+                msg = json.loads(message)
+            except (json.JSONDecodeError, TypeError):
+                msg = {}
+
+            msg_type: str = msg.get("type", "")
+
+            # ── MOBILE: node registration ────────────────────────────
+            if msg_type == "node_register":
+                node_id: str = msg.get("node_id", f"PHONE-{addr}")
+                _mobile_registry.register(node_id)
+                mobile_node_id = node_id
+                # Phones must not receive the full swarm broadcast — bandwidth.
+                _connected.discard(websocket)
+                log("MOBILE", f"📱 Node registered: {node_id}  addr={addr}  "
+                              f"(mobile nodes: {_mobile_registry.count()})")
+                continue
+
+            # ── MOBILE: telemetry update ─────────────────────────────
+            if msg_type == "telemetry" and mobile_node_id is not None:
+                _mobile_registry.update_telemetry(mobile_node_id, msg)
+                continue
+
+            # ── MOBILE: heartbeat (keepalive, no telemetry fields) ───
+            if msg_type == "heartbeat" and mobile_node_id is not None:
+                _mobile_registry.heartbeat(mobile_node_id)
+                continue
+
+            # ── DASHBOARD: all existing command handling (unchanged) ─
+            if msg_type == "command" and msg.get("action") == "ai_query":
+                asyncio.create_task(_handle_ai_query(
+                    websocket,
+                    msg.get("prompt", ""),
+                    msg.get("history", []),
+                    msg.get("telemetry", {}),
+                ))
+            else:
+                _handle_command(message)
+                _handle_v2_command(message, _swarm_ref)  # V2.0 commands
+
     except websockets.exceptions.ConnectionClosedOK:
         pass
     except websockets.exceptions.ConnectionClosedError:
@@ -1216,8 +1253,14 @@ async def _ws_handler(
         # Catch-all: any exotic transport error should NOT kill the server
         pass
     finally:
-        _connected.discard(websocket)
-        log("WS", f"🔴 Dashboard disconnected: {addr}  (clients: {len(_connected)})")
+        if mobile_node_id is not None:
+            # Clean disconnect from a phone — remove from registry.
+            _mobile_registry.remove(mobile_node_id)
+            log("MOBILE", f"📴 Node disconnected: {mobile_node_id}  "
+                          f"(mobile nodes: {_mobile_registry.count()})")
+        else:
+            _connected.discard(websocket)
+            log("WS", f"🔴 Dashboard disconnected: {addr}  (clients: {len(_connected)})")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1275,6 +1318,17 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                             except Exception:
                                 pass
 
+                # Step 2d — Broadcast mobile node telemetry to dashboard clients
+                for telem in _mobile_registry.all_telemetry():
+                    payload = json.dumps(telem)
+                    for client in list(_connected):
+                        try:
+                            await client.send(payload)
+                        except websockets.exceptions.ConnectionClosed:
+                            stale.append(client)
+                        except Exception:
+                            stale.append(client)
+
             await asyncio.sleep(BROADCAST_TICK_S)
 
     except asyncio.CancelledError:
@@ -1295,6 +1349,40 @@ async def console_loop(swarm: List[DroneUnit]) -> None:
             await asyncio.sleep(CONSOLE_TICK_S)
     except asyncio.CancelledError:
         pass
+
+
+# ══════════════════════════════════════════════════════════════════
+#  MOBILE NODE WATCHDOG — prunes stale phones, notifies dashboards
+# ══════════════════════════════════════════════════════════════════
+
+async def mobile_watchdog_loop() -> None:  # Step 2e
+    """Check for stale mobile nodes every NODE_TIMEOUT_S/2 seconds.
+
+    For each dropped node, broadcasts a node_offline event to every
+    connected dashboard so the UI can update immediately.
+    Wrapped in try/except CancelledError like every other loop.
+    """
+    interval: float = NODE_TIMEOUT_S / 2.0
+    log("MOBILE", f"Watchdog online — prune interval: {interval}s")
+
+    try:
+        while True:
+            await asyncio.sleep(interval)
+            dropped = _mobile_registry.prune_stale(NODE_TIMEOUT_S)
+            for node_id in dropped:
+                log("MOBILE", f"⏱ Pruned stale node: {node_id}")
+                if _connected:
+                    offline_msg = json.dumps({
+                        "type": "node_offline",
+                        "drone_id": node_id,
+                    })
+                    for client in list(_connected):
+                        try:
+                            await client.send(offline_msg)
+                        except Exception:
+                            pass
+    except asyncio.CancelledError:
+        log("MOBILE", "Watchdog shutting down")
 
 
 def _print_status_table(swarm: List[DroneUnit]) -> None:
@@ -1318,6 +1406,7 @@ def _print_status_table(swarm: List[DroneUnit]) -> None:
     lines.append(f"└{'─' * w}┘")
     lines.append(
         f"  📡 GCS clients: {len(_connected)}  │  "
+        f"📱 Mobile nodes: {_mobile_registry.count()}  │  "
         f"⏱ Physics: {PHYSICS_TICK_S}s  │  📶 TX: {BROADCAST_TICK_S}s"
     )
     print("\n".join(lines))
@@ -1400,7 +1489,10 @@ async def main() -> None:
     gotham = GothamAnalyzer(swarm)
     gotham_task = asyncio.create_task(gotham.run(), name="gotham")
 
-    background_tasks = [physics_task, broadcast_task, console_task, gotham_task]
+    # Step 2f — Mobile node watchdog
+    watchdog_task = asyncio.create_task(mobile_watchdog_loop(), name="mobile_watchdog")
+
+    background_tasks = [physics_task, broadcast_task, console_task, gotham_task, watchdog_task]
 
     # ── Install signal handlers for graceful shutdown ─────────────
     loop = asyncio.get_running_loop()

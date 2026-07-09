@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TIDDA Mobile Node</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TIDDA Phone Client — Dark, glassy, mobile-first design
+   Zero external dependencies
+   ═══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #0a0e17;
+  --surface:     rgba(255,255,255,0.04);
+  --glass:       rgba(255,255,255,0.06);
+  --glass-hi:    rgba(255,255,255,0.10);
+  --border:      rgba(255,255,255,0.08);
+  --border-hi:   rgba(255,255,255,0.15);
+  --text:        #e2e8f0;
+  --text-dim:    #8892a4;
+  --accent:      #38bdf8;       /* sky-400 */
+  --accent-glow: rgba(56,189,248,0.25);
+  --green:       #22c55e;
+  --red:         #ef4444;
+  --orange:      #f59e0b;
+  --radius:      14px;
+  --font:        'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding: 16px 12px 32px;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+
+.header {
+  text-align: center;
+  padding: 18px 0 10px;
+}
+.header h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header .sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ── Cards / Glass panels ───────────────────────────────────── */
+
+.card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s;
+}
+.card:hover, .card:focus-within { border-color: var(--border-hi); }
+
+.card-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+/* ── Inputs ─────────────────────────────────────────────────── */
+
+label.field {
+  display: block;
+  margin-bottom: 12px;
+}
+label.field .label-text {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+  letter-spacing: 0.03em;
+}
+label.field input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+label.field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--font);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.2s, opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; pointer-events: none; }
+
+.btn-primary {
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(56,189,248,0.3);
+}
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.25);
+}
+
+/* ── Status badge ───────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 20px;
+  margin-bottom: 14px;
+}
+.status-badge .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-badge.connected    { background: rgba(34,197,94,0.12); color: var(--green); }
+.status-badge.connected .dot { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse-dot 2s infinite; }
+.status-badge.disconnected { background: rgba(239,68,68,0.10); color: var(--red); }
+.status-badge.disconnected .dot { background: var(--red); }
+.status-badge.connecting   { background: rgba(245,158,11,0.10); color: var(--orange); }
+.status-badge.connecting .dot { background: var(--orange); animation: pulse-dot 1s infinite; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Telemetry grid ─────────────────────────────────────────── */
+
+.telem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.telem-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.telem-cell .tl { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+.telem-cell .tv { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.telem-cell.wide { grid-column: 1 / -1; }
+
+/* ── Camera toggle ──────────────────────────────────────────── */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.toggle-row .toggle-label { font-size: 0.85rem; font-weight: 500; }
+
+.switch {
+  position: relative;
+  width: 52px; height: 30px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 15px;
+  cursor: pointer;
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+.switch.on { background: var(--accent); }
+.switch .knob {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.switch.on .knob { transform: translateX(22px); }
+
+/* ── Video preview ──────────────────────────────────────────── */
+
+.video-wrap {
+  margin-top: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  display: none;
+  position: relative;
+  background: #000;
+}
+.video-wrap.active { display: block; }
+.video-wrap video {
+  width: 100%;
+  display: block;
+  border-radius: 10px;
+}
+.video-wrap .cam-label {
+  position: absolute;
+  top: 8px; left: 10px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(0,0,0,0.55);
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: var(--green);
+}
+
+/* ── Error panel ────────────────────────────────────────────── */
+
+.error-bar {
+  display: none;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  border-radius: 10px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  color: #fca5a5;
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+.error-bar.visible { display: block; }
+
+/* ── Misc ───────────────────────────────────────────────────── */
+
+.signal-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  vertical-align: middle;
+}
+.signal-bars .bar {
+  width: 4px;
+  border-radius: 1px;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.3s;
+}
+.signal-bars .bar.filled { background: var(--accent); }
+.signal-bars .bar:nth-child(1) { height: 4px; }
+.signal-bars .bar:nth-child(2) { height: 7px; }
+.signal-bars .bar:nth-child(3) { height: 11px; }
+.signal-bars .bar:nth-child(4) { height: 15px; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<div class="header">
+  <h1>📱 TIDDA Mobile Node</h1>
+  <div class="sub">Real-time phone → swarm bridge</div>
+</div>
+
+<!-- ═══════════════ CONNECTION CARD ═══════════════ -->
+<div class="card" id="card-connection">
+  <div class="card-title">Connection</div>
+
+  <label class="field">
+    <span class="label-text">Node ID</span>
+    <input type="text" id="inp-node-id" value="PHONE-01" autocomplete="off" spellcheck="false">
+  </label>
+
+  <label class="field">
+    <span class="label-text">WebSocket URL</span>
+    <input type="url" id="inp-ws-url" value="ws://192.168.1.X:8000/ws/mobile" autocomplete="off" spellcheck="false">
+  </label>
+
+  <button class="btn btn-primary" id="btn-connect">Connect</button>
+</div>
+
+<!-- ═══════════════ ERROR BAR ═══════════════ -->
+<div class="error-bar" id="error-bar"></div>
+
+<!-- ═══════════════ STATUS CARD ═══════════════ -->
+<div class="card" id="card-status">
+  <div class="card-title">Status</div>
+  <div class="status-badge disconnected" id="badge">
+    <span class="dot"></span>
+    <span id="badge-text">Disconnected</span>
+  </div>
+
+  <div class="telem-grid">
+    <div class="telem-cell">
+      <span class="tl">Latitude</span>
+      <span class="tv" id="tv-lat">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Longitude</span>
+      <span class="tv" id="tv-lon">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Altitude</span>
+      <span class="tv" id="tv-alt">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Battery</span>
+      <span class="tv" id="tv-bat">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Heading</span>
+      <span class="tv" id="tv-hdg">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Speed</span>
+      <span class="tv" id="tv-spd">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Network</span>
+      <span class="tv" id="tv-net">—</span>
+    </div>
+    <div class="telem-cell">
+      <span class="tl">Signal</span>
+      <span class="tv" id="tv-sig">
+        <span class="signal-bars" id="sig-bars">
+          <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+        </span>
+      </span>
+    </div>
+    <div class="telem-cell wide">
+      <span class="tl">Last Send</span>
+      <span class="tv" id="tv-ts">—</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CAMERA CARD ═══════════════ -->
+<div class="card" id="card-camera">
+  <div class="card-title">Camera</div>
+  <div class="toggle-row">
+    <span class="toggle-label">Enable Camera</span>
+    <div class="switch" id="cam-toggle" role="switch" aria-checked="false" tabindex="0">
+      <div class="knob"></div>
+    </div>
+  </div>
+  <div class="video-wrap" id="video-wrap">
+    <span class="cam-label">● LIVE</span>
+    <video id="cam-preview" autoplay playsinline muted></video>
+  </div>
+</div>
+
+<!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+<script>
+(function () {
+  "use strict";
+
+  /* ── DOM refs ───────────────────────────────────────────────── */
+  const $id      = (id) => document.getElementById(id);
+  const inpNode  = $id("inp-node-id");
+  const inpUrl   = $id("inp-ws-url");
+  const btnConn  = $id("btn-connect");
+  const badge    = $id("badge");
+  const badgeTxt = $id("badge-text");
+  const errBar   = $id("error-bar");
+
+  const tvLat = $id("tv-lat"), tvLon = $id("tv-lon"), tvAlt = $id("tv-alt");
+  const tvBat = $id("tv-bat"), tvHdg = $id("tv-hdg"), tvSpd = $id("tv-spd");
+  const tvNet = $id("tv-net"), tvTs  = $id("tv-ts");
+  const sigBars  = $id("sig-bars").querySelectorAll(".bar");
+
+  const camToggle = $id("cam-toggle");
+  const videoWrap = $id("video-wrap");
+  const camPreview = $id("cam-preview");
+
+  /* ── State ──────────────────────────────────────────────────── */
+  let ws = null;
+  let geoWatchId = null;
+  let heartbeatTimer = null;
+  let cameraActive = false;
+  let cameraStream = null;
+  let batteryPct = 100;        // fallback
+  let lastSendTs = 0;          // for 2-second throttle
+  const SEND_THROTTLE_MS = 2000;
+  const HEARTBEAT_INTERVAL_MS = 5000;
+
+  /* ── Battery API (best-effort) ──────────────────────────────── */
+  (async function initBattery() {
+    try {
+      if (navigator.getBattery) {
+        const batt = await navigator.getBattery();
+        batteryPct = Math.round(batt.level * 100);
+        batt.addEventListener("levelchange", () => {
+          batteryPct = Math.round(batt.level * 100);
+        });
+      }
+    } catch (_) { /* Battery API unavailable — use fallback 100 */ }
+  })();
+
+  /* ── Network helpers ────────────────────────────────────────── */
+  function networkType() {
+    try {
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      return c ? (c.effectiveType || "unknown") : "unknown";
+    } catch (_) { return "unknown"; }
+  }
+
+  function signalFromType(t) {
+    switch (t) {
+      case "4g":     return 4;
+      case "3g":     return 3;
+      case "2g":     return 2;
+      case "slow-2g":return 1;
+      default:       return 0;
+    }
+  }
+
+  /* ── UI helpers ─────────────────────────────────────────────── */
+  function setBadge(cls, text) {
+    badge.className = "status-badge " + cls;
+    badgeTxt.textContent = text;
+  }
+
+  function showError(msg) {
+    errBar.textContent = msg;
+    errBar.classList.add("visible");
+  }
+
+  function clearError() {
+    errBar.classList.remove("visible");
+    errBar.textContent = "";
+  }
+
+  function updateSignalBars(level) {
+    sigBars.forEach((bar, i) => {
+      bar.classList.toggle("filled", i < level);
+    });
+  }
+
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    return hh + ":" + mm + ":" + ss;
+  }
+
+  /* ── Telemetry send ─────────────────────────────────────────── */
+  function sendTelemetry(pos) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const now = Date.now();
+    if (now - lastSendTs < SEND_THROTTLE_MS) return;
+    lastSendTs = now;
+
+    const coords = pos.coords;
+    const net    = networkType();
+    const sig    = signalFromType(net);
+
+    const payload = {
+      type:           "telemetry",
+      lat:            coords.latitude,
+      lon:            coords.longitude,
+      altitude_m:     coords.altitude ?? 0,
+      battery_pct:    batteryPct,
+      heading_deg:    coords.heading ?? 0,
+      speed_mps:      coords.speed ?? 0,
+      camera_active:  cameraActive,
+      network_type:   net,
+      signal_strength: sig
+    };
+
+    try { ws.send(JSON.stringify(payload)); } catch (_) { return; }
+
+    /* update UI */
+    tvLat.textContent = coords.latitude.toFixed(6);
+    tvLon.textContent = coords.longitude.toFixed(6);
+    tvAlt.textContent = (coords.altitude ?? 0).toFixed(1) + " m";
+    tvBat.textContent = batteryPct + " %";
+    tvHdg.textContent = (coords.heading ?? 0).toFixed(0) + "°";
+    tvSpd.textContent = (coords.speed ?? 0).toFixed(1) + " m/s";
+    tvNet.textContent = net.toUpperCase();
+    updateSignalBars(sig);
+    tvTs.textContent  = fmtTime(now);
+  }
+
+  /* ── Heartbeat ──────────────────────────────────────────────── */
+  function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ type: "heartbeat" })); } catch (_) {}
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+  function stopHeartbeat() {
+    if (heartbeatTimer !== null) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  }
+
+  /* ── Geolocation ────────────────────────────────────────────── */
+  function startGeo() {
+    if (!("geolocation" in navigator)) {
+      showError("Geolocation API not available on this device.");
+      return;
+    }
+    geoWatchId = navigator.geolocation.watchPosition(
+      sendTelemetry,
+      (err) => {
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            showError("📍 Location permission denied. Please allow location access and reconnect.");
+            break;
+          case err.POSITION_UNAVAILABLE:
+            showError("📍 Position unavailable — GPS signal lost. Heartbeats will keep the node alive.");
+            break;
+          case err.TIMEOUT:
+            showError("📍 Location request timed out. Retrying...");
+            break;
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+    );
+  }
+  function stopGeo() {
+    if (geoWatchId !== null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+  }
+
+  /* ── Connect / Disconnect ───────────────────────────────────── */
+  function connect() {
+    clearError();
+    const url    = inpUrl.value.trim();
+    const nodeId = inpNode.value.trim() || "PHONE-01";
+
+    if (!url || !url.startsWith("ws")) {
+      showError("Enter a valid WebSocket URL starting with ws:// or wss://");
+      return;
+    }
+
+    setBadge("connecting", "Connecting…");
+    btnConn.disabled = true;
+
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      showError("Failed to create WebSocket: " + e.message);
+      setBadge("disconnected", "Disconnected");
+      btnConn.disabled = false;
+      return;
+    }
+
+    ws.onopen = () => {
+      setBadge("connected", "Connected — " + nodeId);
+      flipButton(true);
+
+      // register
+      ws.send(JSON.stringify({ type: "node_register", node_id: nodeId }));
+
+      // start sensors
+      startGeo();
+      startHeartbeat();
+    };
+
+    ws.onclose = () => {
+      teardown();
+      setBadge("disconnected", "Disconnected");
+      flipButton(false);
+    };
+
+    ws.onerror = () => {
+      showError("WebSocket error — check the URL and make sure the backend is running.");
+      teardown();
+      setBadge("disconnected", "Disconnected");
+      flipButton(false);
+    };
+  }
+
+  function disconnect() {
+    teardown();
+    if (ws) {
+      try { ws.close(1000, "user disconnect"); } catch (_) {}
+      ws = null;
+    }
+    setBadge("disconnected", "Disconnected");
+    flipButton(false);
+  }
+
+  function teardown() {
+    stopGeo();
+    stopHeartbeat();
+  }
+
+  function flipButton(connected) {
+    btnConn.disabled = false;
+    if (connected) {
+      btnConn.textContent = "Disconnect";
+      btnConn.className   = "btn btn-danger";
+      btnConn.onclick     = disconnect;
+      inpNode.disabled    = true;
+      inpUrl.disabled     = true;
+    } else {
+      btnConn.textContent = "Connect";
+      btnConn.className   = "btn btn-primary";
+      btnConn.onclick     = connect;
+      inpNode.disabled    = false;
+      inpUrl.disabled     = false;
+    }
+  }
+
+  btnConn.onclick = connect;
+
+  /* ── Page unload — best-effort cleanup ──────────────────────── */
+  window.addEventListener("beforeunload", () => {
+    teardown();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try { ws.close(1000, "page unload"); } catch (_) {}
+    }
+  });
+
+  /* ── Camera toggle ──────────────────────────────────────────── */
+  async function enableCamera() {
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      camPreview.srcObject = cameraStream;
+      cameraActive = true;
+      camToggle.classList.add("on");
+      camToggle.setAttribute("aria-checked", "true");
+      videoWrap.classList.add("active");
+      clearError();
+    } catch (e) {
+      cameraActive = false;
+      camToggle.classList.remove("on");
+      camToggle.setAttribute("aria-checked", "false");
+      videoWrap.classList.remove("active");
+      showError("📸 Camera access denied or unavailable: " + e.message);
+    }
+  }
+
+  function disableCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((t) => t.stop());
+      cameraStream = null;
+    }
+    camPreview.srcObject = null;
+    cameraActive = false;
+    camToggle.classList.remove("on");
+    camToggle.setAttribute("aria-checked", "false");
+    videoWrap.classList.remove("active");
+  }
+
+  camToggle.addEventListener("click", () => {
+    if (cameraActive) { disableCamera(); }
+    else { enableCamera(); }
+  });
+  camToggle.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); camToggle.click(); }
+  });
+
+})();
+</script>
+</body>
+</html>
