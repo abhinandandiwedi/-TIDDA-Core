@@ -1,117 +1,326 @@
-
-One operator. One command interface. Multiple autonomous agents.
-
-
 # TIDDA — Tactical Intelligent Drone Defense Architecture
 
-**An autonomous drone swarm command & control platform for surveillance, threat detection, and coordinated multi-agent operations.**
+> **One operator. One command interface. Multiple autonomous agents.**
 
-Built by Abhinandan Diwedi
-
----
-
-## Overview
-
-TIDDA is a full-stack command-and-control (C2) system for autonomous drone swarms, designed around a simple principle: **an operator should not need to manually monitor every drone individually.** As swarm size scales, cognitive load on a human operator becomes the real bottleneck — not hardware. TIDDA's core value is reducing that load through autonomous coordination, self-healing communication, and AI-assisted threat detection, while keeping critical decisions human-in-the-loop.
-
-This repository contains the current software/simulation stack — the swarm intelligence engine, the C2 backend, the live tactical dashboard, and the computer vision detection pipeline.
-
-> **Note on scope:** TIDDA is built and demonstrated as a software/simulation platform. It does not involve physical weapons deployment or autonomous engagement — all threat detection and response actions are surfaced to a human operator for decision-making.
-
----
-
-## Core Capabilities
-
-### 🧠 Swarm Intelligence Engine
-- Multi-drone coordination with autonomous behaviors: automatic Return-to-Base on low battery, threat evasion, and stealth-perch (power-conserving standby) maneuvers
-- Self-healing mesh network logic — if one node loses signal, data reroutes automatically through neighboring nodes rather than dropping
-- Lightweight, dependency-free simulation core so the system can be demonstrated without external flight-simulator infrastructure
-
-### 📡 Command & Control Backend
-- FastAPI + WebSocket server aggregating live telemetry from all connected drones/nodes
-- Real-time broadcast architecture to the frontend dashboard
-- Modular design supporting both simulated drones and real MAVLink-based telemetry (ArduPilot SITL compatible)
-
-### 🎯 AI-Assisted Threat Detection
-- YOLOv8-based object detection pipeline processing live camera feeds
-- Detections are pushed to the operator dashboard in real time as actionable alerts
-- Designed as a decision-support layer — flags what a human should look at, rather than acting autonomously
-
-### 🖥️ Tactical Dashboard (GCS UI)
-- Live tactical map showing drone positions, status, and alert history
-- Multi-node view designed to scale as swarm size grows
-- Built with React for real-time responsiveness
-
----
-
-## Architecture
-
-```
-┌─────────────────────────┐         ┌──────────────────────────┐
-│   Drone / Sensor Layer   │         │   Detection Layer         │
-│  (Simulated or MAVLink)  │         │  (YOLOv8 + Camera Feed)   │
-└────────────┬─────────────┘         └────────────┬─────────────┘
-             │                                     │
-             └───────────────┬─────────────────────┘
-                              ▼
-              ┌───────────────────────────────┐
-              │     C2 Backend (FastAPI)       │
-              │  Swarm Logic · Mesh Relay ·     │
-              │  Telemetry Aggregation          │
-              └───────────────┬─────────────────┘
-                              │ WebSocket
-                              ▼
-              ┌───────────────────────────────┐
-              │   Tactical Dashboard (React)   │
-              │  Live Map · Alerts · Status     │
-              └───────────────────────────────┘
-```
-
----
-
-## Why This Matters
-
-Most drone software focuses on flying a single vehicle well. TIDDA is built around the harder problem: **coordinating many drones as one system**, and making sure that system stays operational and legible to a human even when individual nodes fail, lose signal, or run low on power. That's the gap this project targets — turning a swarm from "many things to babysit" into "one system to command."
-
----
-
-## Status
-
-Actively in development. This is a continuously evolving platform, not a one-off build — features and modules here are being iterated on across multiple development cycles and competitions.
-
----
-
-## Roadmap
-
-- Expanded multi-drone real-world telemetry (beyond simulation)
-- Threat scoring and sensor fusion across multiple detection sources
-- Indoor positioning and mapping capabilities
-- Physical hardware platform (long-term)
-
-
-## Engineering Goals
-
-TIDDA is developed to investigate practical challenges in:
-
-- Multi-agent autonomy
-- Real-time distributed systems
-- Human-machine teaming
-- AI-assisted situational awareness
-- Fault-tolerant swarm communication
-- Simulation-first robotics development
-
-MARKDOWNS;;;
+A software-first command & control platform for autonomous drone swarms and distributed tactical nodes.
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
-
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
-
 ![React](https://img.shields.io/badge/React-Frontend-61DAFB)
-
-![YOLOv8](https://img.shields.io/badge/YOLOv8-Computer%20Vision-red)
-
-![Status](https://img.shields.io/badge/Status-Active%20Development-orange)
-
+![WebSocket](https://img.shields.io/badge/WebSocket-Real--Time-orange)
+![Status](https://img.shields.io/badge/Status-Active%20Development-success)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
+---
 
+# Overview
+
+TIDDA (Tactical Intelligent Drone Defense Architecture) is a software-first Command & Control (C2) platform designed for autonomous drone swarms and distributed tactical nodes.
+
+Instead of treating every drone as an isolated system, TIDDA treats the swarm as one coordinated platform that can be supervised by a single operator through a unified tactical interface.
+
+The long-term objective is to reduce operator workload while improving situational awareness through distributed telemetry, autonomous coordination, AI-assisted perception, and scalable communication architecture.
+
+The project follows a **simulation-first** development philosophy, allowing every subsystem to be validated in software before integration with real hardware.
+
+> **Note:** TIDDA is a research and software engineering project. It does **not** implement autonomous weapon engagement. All threat information is intended to support a human operator.
+
+---
+
+# Current Features
+
+## Swarm Simulation
+
+- Multi-drone swarm simulator
+- Autonomous waypoint navigation
+- Return-to-base logic
+- Low battery behavior
+- Tactical map visualization
+- Live telemetry updates
+
+---
+
+## Command & Control Backend
+
+- FastAPI backend
+- WebSocket communication
+- Live telemetry aggregation
+- Real-time dashboard broadcasting
+- Modular backend architecture
+- Automatic node management
+
+---
+
+## Mobile Node Architecture (NEW)
+
+Android phones can now join TIDDA as real tactical nodes.
+
+Current capabilities include:
+
+- WebSocket connectivity
+- Automatic node registration
+- Heartbeat monitoring
+- Live telemetry synchronization
+- Automatic disconnect detection
+- Multiple node support
+- Zero frontend modifications required
+
+The backend treats Android phones exactly like swarm nodes, allowing future expansion toward drones, robots, edge AI devices, and other tactical assets.
+
+---
+
+## Tactical Dashboard
+
+React-based Ground Control Station featuring:
+
+- Live tactical map
+- Swarm visualization
+- Node status
+- Live telemetry
+- Mission controls
+- Event logging
+- Real-time updates
+
+---
+
+# Current Architecture
+
+```
+                    Android Phone
+                           │
+                           │
+                     WebSocket Client
+                           │
+                           ▼
+┌─────────────────────────────────────────────┐
+│             TIDDA Backend                   │
+│---------------------------------------------│
+│ Mobile Node Registry                        │
+│ Swarm Simulation Engine                     │
+│ Telemetry Aggregation                       │
+│ Heartbeat Monitor                           │
+│ WebSocket Server                            │
+└──────────────────┬──────────────────────────┘
+                   │
+                   ▼
+          Tactical Dashboard (React)
+                   │
+                   ▼
+             Human Operator
+```
+
+Future integrations
+
+```
+PX4
+MAVLink
+YOLO
+SLAM
+Mesh Networking
+Distributed AI
+```
+
+---
+
+# Engineering Goals
+
+TIDDA investigates practical problems in:
+
+- Multi-agent autonomy
+- Distributed systems
+- Swarm intelligence
+- Human-machine teaming
+- AI-assisted situational awareness
+- Fault-tolerant communication
+- Real-time robotics software
+- Scalable command-and-control systems
+
+---
+
+# Current Development Progress
+
+## Completed
+
+- ✅ Swarm Simulator
+- ✅ Tactical Dashboard
+- ✅ FastAPI Backend
+- ✅ WebSocket Infrastructure
+- ✅ Live Telemetry
+- ✅ Mobile Node Architecture
+- ✅ Android Phone Integration
+- ✅ Heartbeat System
+- ✅ Automatic Node Registration
+- ✅ Disconnect Detection
+- ✅ Multi-node Communication Foundation
+
+---
+
+## In Progress
+
+- Live GPS Streaming
+- Battery Telemetry
+- Camera Integration
+- Sensor Data Collection
+- Network Quality Monitoring
+
+---
+
+## Planned
+
+- YOLO Detection
+- Camera Streaming
+- PX4 Integration
+- MAVLink Support
+- SLAM
+- Mesh Networking
+- Multi-Agent Mission Planning
+- Sensor Fusion
+
+---
+
+# Project Structure
+
+```
+backend/
+    api/
+    websocket/
+    mobile/
+    swarm/
+    simulator/
+    dashboard/
+
+frontend/
+    React Dashboard
+
+mobile/
+    Android Tactical Node
+```
+
+---
+
+# Roadmap
+
+## Phase 1 ✅
+
+- Swarm Simulator
+- Tactical Dashboard
+- Backend Architecture
+- WebSocket Communication
+
+## Phase 2 🚧
+
+- Android Mobile Nodes
+- GPS
+- Camera
+- Battery
+- Telemetry
+
+## Phase 3
+
+- YOLO Integration
+- Live Camera Feed
+- Multi-phone Support
+- Sensor Fusion
+
+## Phase 4
+
+- PX4
+- MAVLink
+- SLAM
+- Mesh Networking
+- Autonomous Mission Planning
+
+---
+
+# Screenshots
+
+## Tactical Dashboard
+
+> *(Add screenshot here)*
+
+```
+docs/images/dashboard.png
+```
+
+---
+
+## Android Mobile Node
+
+> *(Add screenshot here)*
+
+```
+docs/images/mobile_node.png
+```
+
+---
+
+## Connected Mobile Node
+
+> *(Add screenshot here)*
+
+```
+docs/images/mobile_connected.png
+```
+
+---
+
+# Why TIDDA?
+
+Most drone projects focus on controlling a single drone.
+
+TIDDA focuses on controlling an entire autonomous system.
+
+Instead of asking:
+
+> "How do I fly one drone?"
+
+TIDDA asks:
+
+> "How can one operator command many autonomous agents through a single interface?"
+
+This project is an exploration of scalable robotics software architecture where communication, coordination, and situational awareness become first-class engineering problems.
+
+---
+
+# Development Philosophy
+
+TIDDA follows a **software-first** approach.
+
+Every subsystem is designed, simulated, tested, and validated before hardware integration.
+
+This allows:
+
+- Faster iteration
+- Better architecture
+- Easier testing
+- Hardware-independent development
+- Cleaner software design
+
+---
+
+# Built With
+
+- Python
+- FastAPI
+- React
+- WebSockets
+- OpenCV
+- YOLO (planned integration)
+
+---
+
+# Author
+
+**Abhinandan Diwedi**
+
+Mechanical Engineering Student
+
+Building software for autonomous drone swarm command-and-control systems.
+
+---
+
+# Project Status
+
+🚧 **Active Development**
+
+This project is under continuous development and serves as a long-term robotics software engineering initiative focused on autonomous systems and distributed command-and-control architectures.
