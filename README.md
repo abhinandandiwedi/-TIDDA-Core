@@ -2,14 +2,15 @@
 
 > **One operator. One command interface. Multiple autonomous agents.**
 
-A software-first command & control platform for autonomous drone swarms and distributed tactical nodes.
+A software-first command & control platform for autonomous drone swarms and distributed tactical nodes
+
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
 ![React](https://img.shields.io/badge/React-Frontend-61DAFB)
 ![WebSocket](https://img.shields.io/badge/WebSocket-Real--Time-orange)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-success)
-![License](https://img.shields.io/badge/License-MIT-blue)
+
 
 ---
 
