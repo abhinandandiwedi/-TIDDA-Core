@@ -385,6 +385,7 @@ label.field input:focus {
   <div class="video-wrap" id="video-wrap">
     <span class="cam-label">● LIVE</span>
     <video id="cam-preview" autoplay playsinline muted></video>
+    <canvas id="cam-canvas" style="display:none;"></canvas>
   </div>
 </div>
 
@@ -417,10 +418,13 @@ label.field input:focus {
   let heartbeatTimer = null;
   let cameraActive = false;
   let cameraStream = null;
+  let frameStreamTimer = null;   // video frame capture interval
   let batteryPct = 100;        // fallback
   let lastSendTs = 0;          // for 2-second throttle
   const SEND_THROTTLE_MS = 2000;
   const HEARTBEAT_INTERVAL_MS = 5000;
+  const FRAME_INTERVAL_MS = 200; // 5 FPS
+  const FRAME_QUALITY = 0.5;     // JPEG quality (0–1)
 
   /* ── Battery API (best-effort) ──────────────────────────────── */
   (async function initBattery() {
@@ -535,6 +539,38 @@ label.field input:focus {
     if (heartbeatTimer !== null) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
   }
 
+  /* ── Video frame streaming (5 FPS) ─────────────────────────── */
+  const camCanvas = $id("cam-canvas");
+  const camCtx    = camCanvas.getContext("2d");
+
+  function startFrameStream() {
+    stopFrameStream();
+    frameStreamTimer = setInterval(() => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!cameraActive || camPreview.readyState < 2) return; // HAVE_CURRENT_DATA
+
+      // Size canvas to match video intrinsic resolution
+      camCanvas.width  = camPreview.videoWidth;
+      camCanvas.height = camPreview.videoHeight;
+      camCtx.drawImage(camPreview, 0, 0);
+
+      const dataUrl = camCanvas.toDataURL("image/jpeg", FRAME_QUALITY);
+      // Strip the "data:image/jpeg;base64," prefix — GCS will re-add it
+      const base64 = dataUrl.split(",")[1];
+
+      try {
+        ws.send(JSON.stringify({ type: "video", frame: base64 }));
+      } catch (_) { /* send failed — skip frame */ }
+    }, FRAME_INTERVAL_MS);
+  }
+
+  function stopFrameStream() {
+    if (frameStreamTimer !== null) {
+      clearInterval(frameStreamTimer);
+      frameStreamTimer = null;
+    }
+  }
+
   /* ── Geolocation ────────────────────────────────────────────── */
   function startGeo() {
     if (!("geolocation" in navigator)) {
@@ -625,6 +661,7 @@ label.field input:focus {
   function teardown() {
     stopGeo();
     stopHeartbeat();
+    stopFrameStream();
   }
 
   function flipButton(connected) {
@@ -666,6 +703,7 @@ label.field input:focus {
       camToggle.classList.add("on");
       camToggle.setAttribute("aria-checked", "true");
       videoWrap.classList.add("active");
+      startFrameStream();  // begin sending frames to GCS
       clearError();
     } catch (e) {
       cameraActive = false;
@@ -677,6 +715,7 @@ label.field input:focus {
   }
 
   function disableCamera() {
+    stopFrameStream();   // stop sending frames
     if (cameraStream) {
       cameraStream.getTracks().forEach((t) => t.stop());
       cameraStream = null;

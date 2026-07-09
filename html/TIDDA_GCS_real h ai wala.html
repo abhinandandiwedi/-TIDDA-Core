@@ -2668,6 +2668,24 @@
     ws.onmessage = function (event) {
       const data = JSON.parse(event.data);
 
+      // ── Live video frames from mobile phone camera ───────────
+      if (data.type === 'video') {
+        const camFeed = document.getElementById('camFeed');
+        let liveImg = document.getElementById('liveFeedImg');
+        if (!liveImg) {
+          // First frame — replace the static SVG with a live <img>
+          const svg = camFeed.querySelector('svg');
+          if (svg) svg.style.display = 'none';
+          liveImg = document.createElement('img');
+          liveImg.id = 'liveFeedImg';
+          liveImg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px;z-index:1;';
+          camFeed.appendChild(liveImg);
+          addLog('ei', '📹 Live video feed connected');
+        }
+        liveImg.src = 'data:image/jpeg;base64,' + data.frame;
+        return;
+      }
+
       if (data.type === 'weapon_telemetry') {
         weaponTelemetry[data.weapon_id] = data;
         spawnWeaponSvgNode(data.weapon_id, data.asset_type);

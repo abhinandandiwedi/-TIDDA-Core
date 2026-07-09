@@ -1233,6 +1233,20 @@ async def _ws_handler(
                 _mobile_registry.heartbeat(mobile_node_id)
                 continue
 
+            # ── MOBILE: video frame relay → all dashboard clients ─────
+            if msg_type == "video" and mobile_node_id is not None:
+                # Forward the frame as-is to every connected GCS dashboard
+                frame_payload = message  # already a JSON string
+                stale: List[websockets.WebSocketServerProtocol] = []
+                for client in list(_connected):
+                    try:
+                        await client.send(frame_payload)
+                    except Exception:
+                        stale.append(client)
+                for client in stale:
+                    _connected.discard(client)
+                continue
+
             # ── DASHBOARD: all existing command handling (unchanged) ─
             if msg_type == "command" and msg.get("action") == "ai_query":
                 asyncio.create_task(_handle_ai_query(
