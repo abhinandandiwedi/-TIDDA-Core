@@ -559,7 +559,12 @@ label.field input:focus {
       const base64 = dataUrl.split(",")[1];
 
       try {
-        ws.send(JSON.stringify({ type: "video", frame: base64 }));
+        ws.send(JSON.stringify({
+          type: "camera_frame",
+          node_id: inpNode.value.trim(),
+          timestamp: Date.now(),
+          frame: base64
+        }));
       } catch (_) { /* send failed — skip frame */ }
     }, FRAME_INTERVAL_MS);
   }

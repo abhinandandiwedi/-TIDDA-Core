@@ -1233,8 +1233,12 @@ async def _ws_handler(
                 _mobile_registry.heartbeat(mobile_node_id)
                 continue
 
-            # ── MOBILE: video frame relay → all dashboard clients ─────
-            if msg_type == "video" and mobile_node_id is not None:
+            # ── MOBILE: camera frame relay → all dashboard clients ────
+            if msg_type == "camera_frame" and mobile_node_id is not None:
+                frame_size = len(msg.get("frame", ""))
+                log("CAMERA", f"📷 Frame from {mobile_node_id}  "
+                              f"size={frame_size} chars  "
+                              f"ts={msg.get('timestamp', '?')}")
                 # Forward the frame as-is to every connected GCS dashboard
                 frame_payload = message  # already a JSON string
                 stale: List[websockets.WebSocketServerProtocol] = []
