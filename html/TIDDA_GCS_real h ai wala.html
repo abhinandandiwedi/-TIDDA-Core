@@ -1144,6 +1144,15 @@
       }
     }
 
+    /* ── Sentry alert animation ──────────────────────────────── */
+    @keyframes sentryPulse {
+      0% { opacity: 0; transform: translateY(-8px); }
+      50% { opacity: 1; transform: translateY(2px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .map-pcard { position: relative; }
+
     .b-waypoint {
       background: rgba(251, 146, 60, 0.15);
       color: #fb923c;
@@ -1486,6 +1495,9 @@
               </defs>
               <rect width="460" height="400" fill="url(#mgrid)" />
 
+              <!-- COVERAGE GRID — filled by mapping-mode phone nodes -->
+              <g id="coverageGrid"></g>
+
               <!-- FLIGHT PATH TRAILS -->
               <g id="flightTrails">
                 <polyline id="trail-d1" class="flight-trail" points="" stroke="#10b981" stroke-width="1.5" opacity="0.6"
@@ -1685,6 +1697,9 @@
               <text x="8" y="393" fill="#334155" font-size="8" font-family="monospace" id="mapFooterText">28.623°N
                 77.454°E | MESH: DYNAMIC | ALT ZONE: URBAN</text>
             </svg>
+          </div>
+          <!-- SENTRY ALERT BANNER -->
+          <div id="sentryAlertBanner" style="display:none;position:absolute;top:0;left:0;right:0;z-index:50;">
           </div>
         </div>
         <div class="right-col">
@@ -1908,6 +1923,12 @@
     const weaponTelemetry = {};
     const _droneColors = ['#10b981', '#2563eb', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4'];
     let _colorIdx = 0;
+
+    /* ── COVERAGE GRID + SENTRY STORES ────────────────────────── */
+    const _coveredCells = new Set();  // "cx,cy" strings to avoid duplicate SVG rects
+    let _coverageTotalCells = 0;
+    const _sentryAlerts = [];        // recent alert history
+    let _sentryAlertTimer = null;
 
     /* ── AI GLOBALS ────────────────────────────────────────────── */
     let aiHistory = [];
@@ -2669,7 +2690,7 @@
       const data = JSON.parse(event.data);
 
       // ── Live video frames from mobile phone camera ───────────
-      if (data.type === 'video') {
+      if (data.type === 'video' || data.type === 'live_frame') {
         const camFeed = document.getElementById('camFeed');
         let liveImg = document.getElementById('liveFeedImg');
         if (!liveImg) {
@@ -2680,9 +2701,130 @@
           liveImg.id = 'liveFeedImg';
           liveImg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:8px;z-index:1;';
           camFeed.appendChild(liveImg);
+          // Add node label overlay
+          const nodeLabel = document.createElement('div');
+          nodeLabel.id = 'liveFeedLabel';
+          nodeLabel.style.cssText = 'position:absolute;top:6px;right:8px;z-index:2;font-size:9px;font-weight:700;font-family:JetBrains Mono,monospace;color:#10b981;background:rgba(0,0,0,0.7);padding:2px 6px;border-radius:4px;letter-spacing:1px;';
+          camFeed.appendChild(nodeLabel);
           addLog('ei', '📹 Live video feed connected');
         }
         liveImg.src = 'data:image/jpeg;base64,' + data.frame;
+        const feedLabel = document.getElementById('liveFeedLabel');
+        if (feedLabel && data.node_id) feedLabel.textContent = '● LIVE ' + data.node_id;
+        return;
+      }
+
+      // ── Coverage grid delta from mapping-mode nodes ────────────
+      if (data.type === 'coverage_delta') {
+        const svg = document.querySelector('svg.msv');
+        const gridGroup = document.getElementById('coverageGrid');
+        if (!svg || !gridGroup) return;
+        const ns = 'http://www.w3.org/2000/svg';
+        const cellSizeM = data.cell_size_m || 10;
+        // Cell pixel size: approximate from the map scale
+        // The map spans ~0.0048° lat over 400px → DEG_PER_PX_LAT
+        const metersPerDegLat = 111320;
+        const cellSizeDeg = cellSizeM / metersPerDegLat;
+        const cellPxH = cellSizeDeg / DEG_PER_PX_LAT;
+        const cosLat = Math.cos(MAP_HOME_LAT * Math.PI / 180);
+        const cellSizeDegLon = cellSizeM / (metersPerDegLat * cosLat);
+        const cellPxW = cellSizeDegLon / DEG_PER_PX_LNG;
+
+        for (const cell of (data.cells || [])) {
+          const [cx, cy, clat, clng] = cell;
+          const key = cx + ',' + cy;
+          if (_coveredCells.has(key)) continue;
+          _coveredCells.add(key);
+
+          const pos = latLngToSvg(clat, clng);
+          const rect = document.createElementNS(ns, 'rect');
+          rect.setAttribute('x', (pos.x - cellPxW / 2).toFixed(1));
+          rect.setAttribute('y', (pos.y - cellPxH / 2).toFixed(1));
+          rect.setAttribute('width', cellPxW.toFixed(1));
+          rect.setAttribute('height', cellPxH.toFixed(1));
+          rect.setAttribute('fill', 'rgba(16,185,129,0.15)');
+          rect.setAttribute('stroke', 'rgba(16,185,129,0.35)');
+          rect.setAttribute('stroke-width', '0.5');
+          rect.setAttribute('rx', '1');
+          // Fade-in animation
+          rect.style.opacity = '0';
+          rect.style.transition = 'opacity 0.5s ease';
+          gridGroup.appendChild(rect);
+          requestAnimationFrame(() => { rect.style.opacity = '1'; });
+        }
+        _coverageTotalCells = data.total_covered || _coveredCells.size;
+        // Update coverage stats in map footer
+        const mft = document.getElementById('mapFooterText');
+        if (mft) {
+          const areaM2 = _coverageTotalCells * cellSizeM * cellSizeM;
+          mft.textContent = `MESH: ${Object.keys(liveTelemetry).length} NODES | COVERAGE: ${_coverageTotalCells} cells (~${areaM2}m²) | ALT ZONE: URBAN`;
+        }
+        return;
+      }
+
+      // ── Sentry alert from person detection ─────────────────────
+      if (data.type === 'sentry_alert') {
+        const nodeId = data.node_id || 'UNKNOWN';
+        const conf = ((data.confidence || 0) * 100).toFixed(0);
+        const count = data.person_count || 1;
+        const ts = new Date(data.timestamp * 1000);
+        const timeStr = ts.toLocaleTimeString('en-US', { hour12: false });
+
+        // Log it
+        addLog('ed', `🚨 PERSON DETECTED — ${nodeId} — ${conf}% — ${count} person(s)`);
+
+        // Flash the node's SVG marker red
+        const nodeEl = document.getElementById('node-' + nodeId);
+        if (nodeEl) {
+          const origFill = nodeEl.getAttribute('fill');
+          nodeEl.setAttribute('fill', '#ef4444');
+          nodeEl.style.transition = 'none';
+          // Add a pulsing red glow
+          const pulseEl = document.getElementById('pulse-' + nodeId);
+          if (pulseEl) pulseEl.setAttribute('stroke', '#ef4444');
+          setTimeout(() => {
+            nodeEl.setAttribute('fill', origFill || '#10b981');
+            if (pulseEl) pulseEl.setAttribute('stroke', origFill || '#10b981');
+          }, 3000);
+        }
+
+        // Show alert banner on the map
+        const bannerContainer = document.getElementById('sentryAlertBanner');
+        if (bannerContainer) {
+          bannerContainer.style.display = 'block';
+          const alertDiv = document.createElement('div');
+          alertDiv.style.cssText = 'padding:8px 14px;margin:4px;border-radius:6px;font-size:11px;font-weight:700;font-family:JetBrains Mono,monospace;letter-spacing:0.5px;color:#fff;display:flex;align-items:center;gap:8px;animation:sentryPulse 0.5s ease;'
+            + 'background:linear-gradient(135deg,rgba(239,68,68,0.9),rgba(185,28,28,0.9));'
+            + 'box-shadow:0 2px 16px rgba(239,68,68,0.4);';
+          alertDiv.innerHTML = `<span style="font-size:16px;">⚠</span> PERSON DETECTED — ${nodeId} — ${conf}% conf — ${count} person(s) — ${timeStr}`;
+          bannerContainer.insertBefore(alertDiv, bannerContainer.firstChild);
+
+          // Auto-dismiss after 8 seconds
+          setTimeout(() => {
+            alertDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            alertDiv.style.opacity = '0';
+            alertDiv.style.transform = 'translateY(-10px)';
+            setTimeout(() => { alertDiv.remove(); }, 600);
+          }, 8000);
+
+          // Keep max 3 alerts visible
+          while (bannerContainer.children.length > 3) {
+            bannerContainer.removeChild(bannerContainer.lastChild);
+          }
+        }
+
+        // Flash the drone card in the right panel
+        const card = document.getElementById('dc-' + nodeId);
+        if (card) {
+          card.style.transition = 'none';
+          card.style.boxShadow = '0 0 20px rgba(239,68,68,0.6)';
+          card.style.borderColor = '#ef4444';
+          setTimeout(() => {
+            card.style.transition = 'all 2s ease';
+            card.style.boxShadow = '';
+            card.style.borderColor = '';
+          }, 3000);
+        }
         return;
       }
 

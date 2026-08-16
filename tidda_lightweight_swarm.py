@@ -28,6 +28,7 @@ from weapon_systems import (
 )
 from swarm_logic import GridPlanner, WakeTriggerType
 from mobile_node import MobileNodeRegistry, NODE_TIMEOUT_S  # Step 2a
+from coverage_grid import CoverageGrid
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -874,6 +875,12 @@ _swarm_ref: List[DroneUnit] = []
 # Mobile node registry — phones connect here; physics_loop never touches it
 _mobile_registry: MobileNodeRegistry = MobileNodeRegistry()  # Step 2b
 
+# Coverage grid — tracks which map cells have been surveyed by mobile nodes
+_coverage_grid: CoverageGrid = CoverageGrid(cell_size_m=10.0)
+
+# Sentry detector — lazy-loaded YOLOv8n for person detection (import deferred)
+_sentry_detector = None  # Initialized in main() to avoid import-time YOLO load
+
 
 def _find_drone(drone_id: str) -> Optional[DroneUnit]:
     """Look up a drone by its ID string (e.g. 'TIDDA-01')."""
@@ -1215,17 +1222,43 @@ async def _ws_handler(
             # ── MOBILE: node registration ────────────────────────────
             if msg_type == "node_register":
                 node_id: str = msg.get("node_id", f"PHONE-{addr}")
-                _mobile_registry.register(node_id)
+                node_mode: str = msg.get("mode", "mapping")
+                _mobile_registry.register(node_id, mode=node_mode)
                 mobile_node_id = node_id
                 # Phones must not receive the full swarm broadcast — bandwidth.
                 _connected.discard(websocket)
-                log("MOBILE", f"📱 Node registered: {node_id}  addr={addr}  "
+                log("MOBILE", f"📱 Node registered: {node_id}  mode={node_mode}  addr={addr}  "
                               f"(mobile nodes: {_mobile_registry.count()})")
                 continue
 
-            # ── MOBILE: telemetry update ─────────────────────────────
+            # ── MOBILE: telemetry update + coverage grid ─────────────────
             if msg_type == "telemetry" and mobile_node_id is not None:
                 _mobile_registry.update_telemetry(mobile_node_id, msg)
+
+                # Coverage grid: record GPS position for mapping-mode nodes
+                _node = _mobile_registry.get_node(mobile_node_id)
+                if _node and _node.mode == "mapping":
+                    lat = msg.get("lat")
+                    lon = msg.get("lon", msg.get("lng"))
+                    if lat is not None and lon is not None:
+                        new_cells = _coverage_grid.record_position(
+                            float(lat), float(lon)
+                        )
+                        if new_cells and _connected:
+                            delta_msg = json.dumps({
+                                "type": "coverage_delta",
+                                "cells": [
+                                    [cx, cy, round(clat, 7), round(clon, 7)]
+                                    for cx, cy, clat, clon in new_cells
+                                ],
+                                "total_covered": _coverage_grid.total_covered(),
+                                "cell_size_m": _coverage_grid.cell_size,
+                            })
+                            for client in list(_connected):
+                                try:
+                                    await client.send(delta_msg)
+                                except Exception:
+                                    pass
                 continue
 
             # ── MOBILE: heartbeat (keepalive, no telemetry fields) ───
@@ -1233,22 +1266,81 @@ async def _ws_handler(
                 _mobile_registry.heartbeat(mobile_node_id)
                 continue
 
-            # ── MOBILE: camera frame relay → all dashboard clients ────
+            # ── MOBILE: camera frame → sentry detection + live feed relay ──
             if msg_type == "camera_frame" and mobile_node_id is not None:
-                frame_size = len(msg.get("frame", ""))
+                frame_data = msg.get("frame", "")
+                frame_size = len(frame_data)
                 log("CAMERA", f"📷 Frame from {mobile_node_id}  "
                               f"size={frame_size} chars  "
                               f"ts={msg.get('timestamp', '?')}")
-                # Forward the frame as-is to every connected GCS dashboard
-                frame_payload = message  # already a JSON string
-                stale: List[websockets.WebSocketServerProtocol] = []
-                for client in list(_connected):
-                    try:
-                        await client.send(frame_payload)
-                    except Exception:
-                        stale.append(client)
-                for client in stale:
-                    _connected.discard(client)
+
+                # Look up the node's current mode
+                _node = _mobile_registry.get_node(mobile_node_id)
+                _node_mode = _node.mode if _node else "mapping"
+
+                # ── Sentry mode: run YOLOv8n person detection ───────────
+                if _node_mode == "sentry" and _sentry_detector is not None and frame_data:
+                    async def _run_sentry(node_id: str, frame_b64: str) -> None:
+                        """Run YOLO inference in a thread and broadcast alert if person found."""
+                        import asyncio as _aio
+                        try:
+                            result = await _aio.to_thread(
+                                _sentry_detector.detect_persons, frame_b64
+                            )
+                        except Exception as e:
+                            log("SENTRY", f"Inference error: {e}")
+                            return
+                        if result is None:
+                            return  # No detection or rate-limited
+                        # Person detected! Broadcast alert
+                        alert = {
+                            "type": "sentry_alert",
+                            "node_id": node_id,
+                            "confidence": result["confidence"],
+                            "person_count": result["person_count"],
+                            "timestamp": time.time(),
+                        }
+                        alert_json = json.dumps(alert)
+                        log("SENTRY", f"🚨 PERSON DETECTED by {node_id}  "
+                                      f"conf={result['confidence']:.2f}  "
+                                      f"count={result['person_count']}")
+                        stale_clients: list = []
+                        for client in list(_connected):
+                            try:
+                                await client.send(alert_json)
+                            except Exception:
+                                stale_clients.append(client)
+                        for client in stale_clients:
+                            _connected.discard(client)
+
+                    asyncio.create_task(_run_sentry(mobile_node_id, frame_data))
+
+                # ── Live feed / sentry+live: relay frame to dashboards ───
+                if _node_mode in ("live_feed", "sentry") and frame_data:
+                    live_payload = json.dumps({
+                        "type": "live_frame",
+                        "node_id": mobile_node_id,
+                        "frame": frame_data,
+                        "timestamp": msg.get("timestamp", time.time()),
+                    })
+                    stale: list = []
+                    for client in list(_connected):
+                        try:
+                            await client.send(live_payload)
+                        except Exception:
+                            stale.append(client)
+                    for client in stale:
+                        _connected.discard(client)
+
+                continue
+
+            # ── MOBILE: mode change (dynamic mode switch) ─────────────
+            if msg_type == "mode_change" and mobile_node_id is not None:
+                new_mode = msg.get("mode", "mapping")
+                _node = _mobile_registry.get_node(mobile_node_id)
+                if _node and new_mode in ("mapping", "sentry", "live_feed"):
+                    _node.mode = new_mode
+                    log("MOBILE", f"🔄 {mobile_node_id} mode → {new_mode}")
                 continue
 
             # ── DASHBOARD: all existing command handling (unchanged) ─
@@ -1479,6 +1571,17 @@ async def main() -> None:
     _swarm_ref = swarm  # expose to WS command handler
     _next_drone_id = len(swarm)  # V2.0: track for auto-ID generation
     log("SYSTEM", f"Swarm initialized — {len(swarm)} units online")
+
+    # ── Initialize Mapping + Sentry subsystems ────────────────────
+    global _sentry_detector
+    try:
+        from sentry_detector import SentryDetector
+        _sentry_detector = SentryDetector()
+        log("SYSTEM", "Sentry detector initialized (YOLO loads on first frame)")
+    except Exception as e:
+        _sentry_detector = None
+        log("SYSTEM", f"⚠ Sentry detector unavailable: {e}")
+    log("SYSTEM", f"Coverage grid online — cell size: {_coverage_grid.cell_size}m")
 
     # V2.0: Initialize weapon systems
     weapon_reg = WeaponRegistry()

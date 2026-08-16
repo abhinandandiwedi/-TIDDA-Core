@@ -32,6 +32,7 @@ class MobileNode:
     network_type: str = "UNKNOWN"        # e.g. "LTE", "5G", "WIFI"
     signal_strength: int = 0             # dBm or RSSI integer
     status: str = "SCANNING"
+    mode: str = "mapping"                # "mapping", "sentry", or "live_feed"
     connected_at: float = field(default_factory=time.time)
     last_seen: float = field(default_factory=time.time)
 
@@ -64,6 +65,9 @@ class MobileNode:
             self.signal_strength = int(payload["signal_strength"])
         if "status" in payload:
             self.status = str(payload["status"])
+        if "mode" in payload:
+            if payload["mode"] in ("mapping", "sentry", "live_feed"):
+                self.mode = str(payload["mode"])
         self.last_seen = time.time()
 
     # ── Heartbeat-only update ────────────────────────────────────
@@ -102,6 +106,7 @@ class MobileNode:
             "camera_active":   self.camera_active,
             "network_type":    self.network_type,
             "signal_strength": self.signal_strength,
+            "mode":            self.mode,
         }
 
 
@@ -117,17 +122,24 @@ class MobileNodeRegistry:
 
     # ── Lifecycle ────────────────────────────────────────────────
 
-    def register(self, node_id: str) -> MobileNode:
+    def register(self, node_id: str, mode: str = "mapping") -> MobileNode:
         """Create or refresh a node entry; returns the node."""
         if node_id not in self._nodes:
-            self._nodes[node_id] = MobileNode(node_id=node_id)
+            node = MobileNode(node_id=node_id, mode=mode)
+            self._nodes[node_id] = node
         else:
             self._nodes[node_id].touch()  # re-registered after reconnect
+            if mode in ("mapping", "sentry", "live_feed"):
+                self._nodes[node_id].mode = mode
         return self._nodes[node_id]
 
     def remove(self, node_id: str) -> None:
         """Remove a node (called on clean WS disconnect)."""
         self._nodes.pop(node_id, None)
+
+    def get_node(self, node_id: str) -> MobileNode | None:
+        """Look up a single node by ID (returns None if not registered)."""
+        return self._nodes.get(node_id)
 
     # ── Update helpers ───────────────────────────────────────────
 
