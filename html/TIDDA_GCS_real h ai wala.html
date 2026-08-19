@@ -1479,7 +1479,16 @@
 
         </div>
         <div class="pcard map-pcard" style="padding:0;">
-          <div class="pcard-h" style="border-radius:12px 12px 0 0;">Tactical Map — URBAN ZONE</div>
+          <div class="pcard-h" style="border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;">
+            <span>Tactical Map — URBAN ZONE</span>
+            <button id="btnClearGrid" onclick="clearCoverageGrid()"
+              style="font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;
+                     background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
+                     border-radius:4px;padding:2px 8px;cursor:pointer;transition:all .2s;"
+              onmouseenter="this.style.background='rgba(239,68,68,0.3)'"
+              onmouseleave="this.style.background='rgba(239,68,68,0.15)'"
+            >⟲ CLEAR GRID</button>
+          </div>
           <div class="map-area">
             <svg class="msv" viewBox="0 0 460 400">
               <defs>
@@ -1692,6 +1701,16 @@
                   <text x="12" y="-5" fill="rgba(239,68,68,0.6)" font-size="6" font-family="JetBrains Mono,monospace"
                     id="wpCoords"></text>
                 </g>
+              </g>
+
+              <!-- PHONE POSITION DOT — updated on grid_update -->
+              <g id="phonePositionGroup" style="display:none;">
+                <circle id="phoneDotPulse" cx="0" cy="0" r="8" fill="rgba(6,182,212,0.2)" stroke="none">
+                  <animate attributeName="r" values="6;14;6" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <circle id="phoneDot" cx="0" cy="0" r="4" fill="#06b6d4" stroke="#0e1726" stroke-width="1.5" />
+                <text id="phoneDotLabel" x="7" y="-6" fill="#06b6d4" font-size="6" font-family="JetBrains Mono,monospace" font-weight="700"></text>
               </g>
 
               <text x="8" y="393" fill="#334155" font-size="8" font-family="monospace" id="mapFooterText">28.623°N
@@ -1948,6 +1967,25 @@
         addLog('ei', 'Swarm connectivity established');
         addLog('ew', 'T-04 low battery warning');
       }, 700);
+    }
+
+    /* ============================================================
+       CLEAR COVERAGE GRID
+       ============================================================ */
+    function clearCoverageGrid() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'command', action: 'clear_grid' }));
+      }
+      // Also clear locally immediately for instant feedback
+      const gridGroup = document.getElementById('coverageGrid');
+      if (gridGroup) gridGroup.innerHTML = '';
+      _coveredCells.clear();
+      _coverageTotalCells = 0;
+      const phoneGrp = document.getElementById('phonePositionGroup');
+      if (phoneGrp) phoneGrp.style.display = 'none';
+      const mft = document.getElementById('mapFooterText');
+      if (mft) mft.textContent = `MESH: ${Object.keys(liveTelemetry).length} NODES | COVERAGE: 0 cells (~0m²) | ALT ZONE: URBAN`;
+      addLog('ei', '🧹 Coverage grid cleared — new mission');
     }
 
     /* ============================================================
@@ -2690,7 +2728,7 @@
       const data = JSON.parse(event.data);
 
       // ── Live video frames from mobile phone camera ───────────
-      if (data.type === 'video' || data.type === 'live_frame') {
+      if (data.type === 'live_frame') {
         const camFeed = document.getElementById('camFeed');
         let liveImg = document.getElementById('liveFeedImg');
         if (!liveImg) {
@@ -2714,15 +2752,21 @@
         return;
       }
 
-      // ── Coverage grid delta from mapping-mode nodes ────────────
-      if (data.type === 'coverage_delta') {
+      // ── Coverage grid update from mobile nodes ──────────────────
+      if (data.type === 'grid_update') {
         const svg = document.querySelector('svg.msv');
         const gridGroup = document.getElementById('coverageGrid');
         if (!svg || !gridGroup) return;
         const ns = 'http://www.w3.org/2000/svg';
-        const cellSizeM = data.cell_size_m || 10;
+        const cellSizeM = data.cell_size_m || 5;
+        const cx = data.grid_x;
+        const cy = data.grid_y;
+        const clat = data.center_lat;
+        const clon = data.center_lon;
+        const nodeId = data.node_id || 'UNKNOWN';
+        const key = nodeId + ':' + cx + ',' + cy;
+
         // Cell pixel size: approximate from the map scale
-        // The map spans ~0.0048° lat over 400px → DEG_PER_PX_LAT
         const metersPerDegLat = 111320;
         const cellSizeDeg = cellSizeM / metersPerDegLat;
         const cellPxH = cellSizeDeg / DEG_PER_PX_LAT;
@@ -2730,28 +2774,48 @@
         const cellSizeDegLon = cellSizeM / (metersPerDegLat * cosLat);
         const cellPxW = cellSizeDegLon / DEG_PER_PX_LNG;
 
-        for (const cell of (data.cells || [])) {
-          const [cx, cy, clat, clng] = cell;
-          const key = cx + ',' + cy;
-          if (_coveredCells.has(key)) continue;
+        if (!_coveredCells.has(key)) {
           _coveredCells.add(key);
 
-          const pos = latLngToSvg(clat, clng);
+          const pos = latLngToSvg(clat, clon);
           const rect = document.createElementNS(ns, 'rect');
           rect.setAttribute('x', (pos.x - cellPxW / 2).toFixed(1));
           rect.setAttribute('y', (pos.y - cellPxH / 2).toFixed(1));
           rect.setAttribute('width', cellPxW.toFixed(1));
           rect.setAttribute('height', cellPxH.toFixed(1));
-          rect.setAttribute('fill', 'rgba(16,185,129,0.15)');
-          rect.setAttribute('stroke', 'rgba(16,185,129,0.35)');
+          rect.setAttribute('fill', 'rgba(6,182,212,0.18)');
+          rect.setAttribute('stroke', 'rgba(6,182,212,0.4)');
           rect.setAttribute('stroke-width', '0.5');
           rect.setAttribute('rx', '1');
+          rect.dataset.gridKey = key;
           // Fade-in animation
           rect.style.opacity = '0';
           rect.style.transition = 'opacity 0.5s ease';
           gridGroup.appendChild(rect);
           requestAnimationFrame(() => { rect.style.opacity = '1'; });
         }
+
+        // Update phone position dot
+        if (clat && clon) {
+          const phoneGrp = document.getElementById('phonePositionGroup');
+          const phoneDot = document.getElementById('phoneDot');
+          const phonePulse = document.getElementById('phoneDotPulse');
+          const phoneLabel = document.getElementById('phoneDotLabel');
+          if (phoneGrp && phoneDot && phonePulse) {
+            const pos = latLngToSvg(clat, clon);
+            phoneGrp.style.display = '';
+            phoneDot.setAttribute('cx', pos.x.toFixed(1));
+            phoneDot.setAttribute('cy', pos.y.toFixed(1));
+            phonePulse.setAttribute('cx', pos.x.toFixed(1));
+            phonePulse.setAttribute('cy', pos.y.toFixed(1));
+            if (phoneLabel) {
+              phoneLabel.setAttribute('x', (pos.x + 7).toFixed(1));
+              phoneLabel.setAttribute('y', (pos.y - 6).toFixed(1));
+              phoneLabel.textContent = '● ' + nodeId;
+            }
+          }
+        }
+
         _coverageTotalCells = data.total_covered || _coveredCells.size;
         // Update coverage stats in map footer
         const mft = document.getElementById('mapFooterText');
@@ -2759,6 +2823,22 @@
           const areaM2 = _coverageTotalCells * cellSizeM * cellSizeM;
           mft.textContent = `MESH: ${Object.keys(liveTelemetry).length} NODES | COVERAGE: ${_coverageTotalCells} cells (~${areaM2}m²) | ALT ZONE: URBAN`;
         }
+        return;
+      }
+
+      // ── Coverage grid clear (reset) ────────────────────────────
+      if (data.type === 'grid_clear') {
+        const gridGroup = document.getElementById('coverageGrid');
+        if (gridGroup) gridGroup.innerHTML = '';
+        _coveredCells.clear();
+        _coverageTotalCells = 0;
+        // Hide phone dot
+        const phoneGrp = document.getElementById('phonePositionGroup');
+        if (phoneGrp) phoneGrp.style.display = 'none';
+        // Reset map footer
+        const mft = document.getElementById('mapFooterText');
+        if (mft) mft.textContent = `MESH: ${Object.keys(liveTelemetry).length} NODES | COVERAGE: 0 cells (~0m²) | ALT ZONE: URBAN`;
+        addLog('ei', '🧹 Coverage grid cleared');
         return;
       }
 

@@ -16,14 +16,8 @@ from typing import Optional
 try:
     from ultralytics import YOLO
 except ImportError:
-    print("[SYSTEM] ultralytics not found — installing...")
-    import subprocess
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "ultralytics"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    from ultralytics import YOLO
+    print("[SYSTEM] ultralytics not found — sentry detector will be disabled.")
+    raise
 
 try:
     import numpy as np

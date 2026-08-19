@@ -875,8 +875,16 @@ _swarm_ref: List[DroneUnit] = []
 # Mobile node registry — phones connect here; physics_loop never touches it
 _mobile_registry: MobileNodeRegistry = MobileNodeRegistry()  # Step 2b
 
-# Coverage grid — tracks which map cells have been surveyed by mobile nodes
-_coverage_grid: CoverageGrid = CoverageGrid(cell_size_m=10.0)
+# Coverage grids — per-node, lazily created on first telemetry
+_coverage_grids: Dict[str, CoverageGrid] = {}
+
+
+def _get_coverage_grid(node_id: str) -> CoverageGrid:
+    """Return (or create) the CoverageGrid for a given mobile node."""
+    if node_id not in _coverage_grids:
+        _coverage_grids[node_id] = CoverageGrid(cell_size_m=5.0)
+        log("GRID", f"📐 New coverage grid for {node_id}  cell=5m")
+    return _coverage_grids[node_id]
 
 # Sentry detector — lazy-loaded YOLOv8n for person detection (import deferred)
 _sentry_detector = None  # Initialized in main() to avoid import-time YOLO load
@@ -1235,30 +1243,34 @@ async def _ws_handler(
             if msg_type == "telemetry" and mobile_node_id is not None:
                 _mobile_registry.update_telemetry(mobile_node_id, msg)
 
-                # Coverage grid: record GPS position for mapping-mode nodes
-                _node = _mobile_registry.get_node(mobile_node_id)
-                if _node and _node.mode == "mapping":
+                # Coverage grid: record GPS position only when camera is ON
+                camera_on = bool(msg.get("camera_active", False))
+                if camera_on:
                     lat = msg.get("lat")
                     lon = msg.get("lon", msg.get("lng"))
                     if lat is not None and lon is not None:
-                        new_cells = _coverage_grid.record_position(
+                        grid = _get_coverage_grid(mobile_node_id)
+                        new_cells = grid.record_position(
                             float(lat), float(lon)
                         )
                         if new_cells and _connected:
-                            delta_msg = json.dumps({
-                                "type": "coverage_delta",
-                                "cells": [
-                                    [cx, cy, round(clat, 7), round(clon, 7)]
-                                    for cx, cy, clat, clon in new_cells
-                                ],
-                                "total_covered": _coverage_grid.total_covered(),
-                                "cell_size_m": _coverage_grid.cell_size,
-                            })
-                            for client in list(_connected):
-                                try:
-                                    await client.send(delta_msg)
-                                except Exception:
-                                    pass
+                            for cx, cy, clat, clon in new_cells:
+                                update_msg = json.dumps({
+                                    "type": "grid_update",
+                                    "node_id": mobile_node_id,
+                                    "grid_x": cx,
+                                    "grid_y": cy,
+                                    "center_lat": round(clat, 7),
+                                    "center_lon": round(clon, 7),
+                                    "total_covered": grid.total_covered(),
+                                    "cell_size_m": grid.cell_size,
+                                    "timestamp": time.time(),
+                                })
+                                for client in list(_connected):
+                                    try:
+                                        await client.send(update_msg)
+                                    except Exception:
+                                        pass
                 continue
 
             # ── MOBILE: heartbeat (keepalive, no telemetry fields) ───
@@ -1341,6 +1353,30 @@ async def _ws_handler(
                 if _node and new_mode in ("mapping", "sentry", "live_feed"):
                     _node.mode = new_mode
                     log("MOBILE", f"🔄 {mobile_node_id} mode → {new_mode}")
+                continue
+
+            # ── DASHBOARD: clear coverage grid ─────────────────────────
+            if msg_type == "command" and msg.get("action") == "clear_grid":
+                target_node = msg.get("node_id")  # optional — clear specific node
+                if target_node and target_node in _coverage_grids:
+                    _coverage_grids[target_node].reset()
+                    log("GRID", f"🧹 Coverage grid cleared for {target_node}")
+                else:
+                    for grid in _coverage_grids.values():
+                        grid.reset()
+                    _coverage_grids.clear()
+                    log("GRID", "🧹 All coverage grids cleared")
+                # Broadcast grid_clear to all dashboard clients
+                clear_msg = json.dumps({
+                    "type": "grid_clear",
+                    "node_id": target_node,
+                    "timestamp": time.time(),
+                })
+                for client in list(_connected):
+                    try:
+                        await client.send(clear_msg)
+                    except Exception:
+                        pass
                 continue
 
             # ── DASHBOARD: all existing command handling (unchanged) ─
@@ -1581,7 +1617,7 @@ async def main() -> None:
     except Exception as e:
         _sentry_detector = None
         log("SYSTEM", f"⚠ Sentry detector unavailable: {e}")
-    log("SYSTEM", f"Coverage grid online — cell size: {_coverage_grid.cell_size}m")
+    log("SYSTEM", "Coverage grid online — per-node, cell size: 5m")
 
     # V2.0: Initialize weapon systems
     weapon_reg = WeaponRegistry()

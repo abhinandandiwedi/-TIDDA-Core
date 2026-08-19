@@ -37,7 +37,7 @@ class CoverageGrid:
 
     def __init__(
         self,
-        cell_size_m: float = 10.0,
+        cell_size_m: float = 5.0,
         origin_lat: float | None = None,
         origin_lon: float | None = None,
     ) -> None:
