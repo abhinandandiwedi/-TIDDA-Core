@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from mapping_models import (
     FloorState,
+    FloorStatus,
     Landmark,
     LocalMapState,
     Pose,
@@ -116,6 +117,13 @@ class MappingPipeline:
             # Create or update local map for scanning session
             self.local_map_manager.create_map(node_id, floor_id)
             self.floor_manager.activate_floor(floor_id)
+
+            # Ensure WorldModel reflects the active floor immediately
+            world_floor = self.world_model.get_or_create_floor(floor_id)
+            world_floor.status = FloorStatus.ACTIVE
+            if node_id not in world_floor.node_ids:
+                world_floor.node_ids.append(node_id)
+            self.world_model.participating_nodes.add(node_id)
 
             return True, f"Node {node_id} scanning started on floor {floor_id}"
         except Exception as e:

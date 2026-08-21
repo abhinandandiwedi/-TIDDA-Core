@@ -1146,12 +1146,25 @@
 
     /* ── Sentry alert animation ──────────────────────────────── */
     @keyframes sentryPulse {
-      0% { opacity: 0; transform: translateY(-8px); }
-      50% { opacity: 1; transform: translateY(2px); }
-      100% { opacity: 1; transform: translateY(0); }
+      0% {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+
+      50% {
+        opacity: 1;
+        transform: translateY(2px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
-    .map-pcard { position: relative; }
+    .map-pcard {
+      position: relative;
+    }
 
     .b-waypoint {
       background: rgba(251, 146, 60, 0.15);
@@ -1479,47 +1492,62 @@
 
         </div>
         <div class="pcard map-pcard" style="padding:0;position:relative;">
-          <div class="pcard-h" style="border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;">
+          <div class="pcard-h"
+            style="border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;">
             <span>Tactical Map — SHARED WORLD MODEL</span>
             <div style="display:flex;align-items:center;gap:6px;">
-              <button id="btnClearGrid" onclick="clearCoverageGrid()"
-                style="font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;
+              <button id="btnClearGrid" onclick="clearCoverageGrid()" style="font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;
                        background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
                        border-radius:4px;padding:2px 8px;cursor:pointer;transition:all .2s;"
                 onmouseenter="this.style.background='rgba(239,68,68,0.3)'"
-                onmouseleave="this.style.background='rgba(239,68,68,0.15)'"
-              >⟲ CLEAR GRID</button>
+                onmouseleave="this.style.background='rgba(239,68,68,0.15)'">⟲ CLEAR GRID</button>
             </div>
           </div>
 
           <!-- MULTI-FLOOR TAB BAR (Phase 5 & 10) -->
-          <div id="floorTabBar" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--secondary);border-bottom:0.5px solid var(--border2);overflow-x:auto;">
-            <div style="font-size:9px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-right:4px;">FLOORS:</div>
+          <div id="floorTabBar"
+            style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--secondary);border-bottom:0.5px solid var(--border2);overflow-x:auto;">
+            <div
+              style="font-size:9px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-right:4px;">
+              FLOORS:</div>
             <div id="floorTabsContainer" style="display:flex;align-items:center;gap:6px;">
-              <button class="floor-tab active" onclick="selectFloorTab('ALL')" style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;border:none;cursor:pointer;">ALL FLOORS</button>
+              <button class="floor-tab active" onclick="selectFloorTab('ALL')"
+                style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;border:none;cursor:pointer;">ALL
+                FLOORS</button>
             </div>
           </div>
 
           <div class="map-area" style="position:relative;">
             <!-- NO ACTIVE SCAN OVERLAY (Phase 3 & 13) -->
-            <div id="noScanOverlay" style="position:absolute;inset:0;z-index:20;background:rgba(5,5,5,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;transition:opacity 0.4s ease;">
-              <div style="font-size:16px;font-weight:900;letter-spacing:3px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">TIDDA MAPPING</div>
-              <div id="noScanStatusText" style="font-size:11px;font-weight:700;letter-spacing:2px;color:#ef4444;font-family:'JetBrains Mono',monospace;">NO ACTIVE SCAN</div>
-              <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px;">Assign a floor and start scan to visualize real-time world model</div>
+            <div id="noScanOverlay"
+              style="position:absolute;inset:0;z-index:20;background:rgba(5,5,5,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;transition:opacity 0.4s ease;">
+              <div
+                style="font-size:16px;font-weight:900;letter-spacing:3px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">
+                TIDDA MAPPING</div>
+              <div id="noScanStatusText"
+                style="font-size:11px;font-weight:700;letter-spacing:2px;color:#ef4444;font-family:'JetBrains Mono',monospace;">
+                NO ACTIVE SCAN</div>
+              <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px;">
+                Assign a floor and start scan to visualize real-time world model</div>
             </div>
 
             <!-- FUSION STATUS OVERLAY (Phase 9) -->
-            <div id="fusionStatusOverlay" style="position:absolute;top:10px;left:10px;z-index:25;background:rgba(14,14,14,0.9);border:1px solid rgba(37,99,235,0.4);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;display:none;">
+            <div id="fusionStatusOverlay"
+              style="position:absolute;top:10px;left:10px;z-index:25;background:rgba(14,14,14,0.9);border:1px solid rgba(37,99,235,0.4);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;display:none;">
               <div style="font-weight:800;color:var(--accent);letter-spacing:1px;">FUSION ENGINE</div>
               <div id="fusionStatusText" style="color:var(--text);margin-top:2px;">Confidence: --</div>
-              <div id="fusionDecisionsText" style="color:var(--muted);font-size:8px;margin-top:2px;">Decisions: None</div>
+              <div id="fusionDecisionsText" style="color:var(--muted);font-size:8px;margin-top:2px;">Decisions: None
+              </div>
             </div>
 
             <!-- OBSERVATION INSPECTION DRAWER (Phase 8) -->
-            <div id="obsDetailDrawer" style="position:absolute;bottom:10px;right:10px;z-index:30;background:#0e0e0e;border:1px solid var(--accent);border-radius:8px;padding:10px 12px;width:220px;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.6);font-family:'JetBrains Mono',monospace;">
-              <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:6px;">
+            <div id="obsDetailDrawer"
+              style="position:absolute;bottom:10px;right:10px;z-index:30;background:#0e0e0e;border:1px solid var(--accent);border-radius:8px;padding:10px 12px;width:220px;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.6);font-family:'JetBrains Mono',monospace;">
+              <div
+                style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:6px;">
                 <span style="font-weight:800;color:var(--accent);font-size:10px;" id="obsTypeTitle">OBSERVATION</span>
-                <button onclick="document.getElementById('obsDetailDrawer').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;">✕</button>
+                <button onclick="document.getElementById('obsDetailDrawer').style.display='none'"
+                  style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;">✕</button>
               </div>
               <div style="font-size:9px;line-height:1.5;color:var(--text);">
                 <div>Class: <span id="obsClassVal" style="color:#fff;font-weight:700;">--</span></div>
@@ -1754,7 +1782,8 @@
                   <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite" />
                 </circle>
                 <circle id="phoneDot" cx="0" cy="0" r="4" fill="#06b6d4" stroke="#0e1726" stroke-width="1.5" />
-                <text id="phoneDotLabel" x="7" y="-6" fill="#06b6d4" font-size="6" font-family="JetBrains Mono,monospace" font-weight="700"></text>
+                <text id="phoneDotLabel" x="7" y="-6" fill="#06b6d4" font-size="6"
+                  font-family="JetBrains Mono,monospace" font-weight="700"></text>
               </g>
 
               <text x="8" y="393" fill="#334155" font-size="8" font-family="monospace" id="mapFooterText">28.623°N

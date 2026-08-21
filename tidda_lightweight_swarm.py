@@ -1377,8 +1377,8 @@ async def _ws_handler(
                     _scan_session.start_session()
                     log("SCAN", "▶ Scan session started")
                 elif target:
-                    ok = _scan_session.start_node_scan(target)
-                    log("SCAN", f"▶ Node scan {'started' if ok else 'FAILED'}: {target}")
+                    ok, msg_txt = _mapping_pipeline.start_node_scan(target)
+                    log("SCAN", f"▶ Node scan {'started' if ok else 'FAILED'}: {target} ({msg_txt})")
                 continue
 
             if msg_type == "scan_stop":
@@ -1387,7 +1387,7 @@ async def _ws_handler(
                     _scan_session.stop_session()
                     log("SCAN", "⏹ Scan session stopped")
                 elif target:
-                    ok = _scan_session.stop_node_scan(target)
+                    ok = _mapping_pipeline.stop_node_scan(target)
                     log("SCAN", f"⏹ Node scan {'stopped' if ok else 'FAILED'}: {target}")
                 continue
 

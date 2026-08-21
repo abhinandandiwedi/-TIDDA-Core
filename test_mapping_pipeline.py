@@ -270,6 +270,76 @@ class TestExistingServerHandlers(unittest.TestCase):
         self.assertTrue(ok_stop)
         self.assertEqual(session.get_node_state("PHONE-TEST"), NodeScanState.IDLE)
 
+class TestMappingPipelineWorldStateSync(unittest.TestCase):
+    """Tests for Step 10A minimal fix: WorldModel state sync."""
+
+    def test_floor_assignment_and_scan_start(self):
+        """1. floor assignment + scan start causes FLOOR-1 to appear in world_state
+        6. world_state works before any camera observation
+        2. node enters SCANNING state"""
+        pipeline = MappingPipeline()
+        pipeline.register_node("PHONE-01")
+        pipeline.assign_node_to_floor("PHONE-01", "FLOOR-1")
+        pipeline.start_node_scan("PHONE-01")
+
+        state = pipeline.get_world_state()
+        
+        self.assertIn("FLOOR-1", state["floors"])
+        self.assertEqual(state["floors"]["FLOOR-1"]["status"], "ACTIVE")
+        self.assertIn("PHONE-01", state["floors"]["FLOOR-1"]["node_ids"])
+        
+        self.assertEqual(pipeline.scan_session.get_node_state("PHONE-01"), NodeScanState.SCANNING)
+
+    def test_scan_stop_removes_active_scanning_state(self):
+        """3. scan stop removes active scanning state correctly"""
+        pipeline = MappingPipeline()
+        pipeline.register_node("PHONE-01")
+        pipeline.assign_node_to_floor("PHONE-01", "FLOOR-1")
+        pipeline.start_node_scan("PHONE-01")
+        
+        pipeline.stop_node_scan("PHONE-01")
+        self.assertEqual(pipeline.scan_session.get_node_state("PHONE-01"), NodeScanState.IDLE)
+
+    def test_two_nodes_can_scan_same_floor(self):
+        """4. two nodes can scan the same floor"""
+        pipeline = MappingPipeline()
+        pipeline.register_node("PHONE-01")
+        pipeline.register_node("PHONE-02")
+        
+        pipeline.assign_node_to_floor("PHONE-01", "FLOOR-1")
+        pipeline.start_node_scan("PHONE-01")
+        
+        pipeline.assign_node_to_floor("PHONE-02", "FLOOR-1")
+        pipeline.start_node_scan("PHONE-02")
+
+        state = pipeline.get_world_state()
+        self.assertIn("PHONE-01", state["floors"]["FLOOR-1"]["node_ids"])
+        self.assertIn("PHONE-02", state["floors"]["FLOOR-1"]["node_ids"])
+        self.assertEqual(pipeline.scan_session.get_node_state("PHONE-01"), NodeScanState.SCANNING)
+        self.assertEqual(pipeline.scan_session.get_node_state("PHONE-02"), NodeScanState.SCANNING)
+
+    def test_different_floors_remain_independent(self):
+        """5. different floors remain independent"""
+        pipeline = MappingPipeline()
+        pipeline.register_node("PHONE-01")
+        pipeline.register_node("PHONE-02")
+        
+        pipeline.assign_node_to_floor("PHONE-01", "FLOOR-1")
+        pipeline.start_node_scan("PHONE-01")
+        
+        pipeline.assign_node_to_floor("PHONE-02", "FLOOR-2")
+        pipeline.start_node_scan("PHONE-02")
+
+        state = pipeline.get_world_state()
+        self.assertIn("FLOOR-1", state["floors"])
+        self.assertIn("FLOOR-2", state["floors"])
+        
+        self.assertIn("PHONE-01", state["floors"]["FLOOR-1"]["node_ids"])
+        self.assertNotIn("PHONE-02", state["floors"]["FLOOR-1"]["node_ids"])
+        
+        self.assertIn("PHONE-02", state["floors"]["FLOOR-2"]["node_ids"])
+        self.assertNotIn("PHONE-01", state["floors"]["FLOOR-2"]["node_ids"])
+
 
 if __name__ == "__main__":
     unittest.main()
