@@ -1,9 +1,5 @@
-# Secrets
 .env
-
-# Python
+.venv/
 __pycache__/
 *.pyc
-
-# Virtual environment
-.venv/
+cert/

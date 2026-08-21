@@ -1478,18 +1478,58 @@
           </div>
 
         </div>
-        <div class="pcard map-pcard" style="padding:0;">
+        <div class="pcard map-pcard" style="padding:0;position:relative;">
           <div class="pcard-h" style="border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;">
-            <span>Tactical Map — URBAN ZONE</span>
-            <button id="btnClearGrid" onclick="clearCoverageGrid()"
-              style="font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;
-                     background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
-                     border-radius:4px;padding:2px 8px;cursor:pointer;transition:all .2s;"
-              onmouseenter="this.style.background='rgba(239,68,68,0.3)'"
-              onmouseleave="this.style.background='rgba(239,68,68,0.15)'"
-            >⟲ CLEAR GRID</button>
+            <span>Tactical Map — SHARED WORLD MODEL</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button id="btnClearGrid" onclick="clearCoverageGrid()"
+                style="font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;
+                       background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);
+                       border-radius:4px;padding:2px 8px;cursor:pointer;transition:all .2s;"
+                onmouseenter="this.style.background='rgba(239,68,68,0.3)'"
+                onmouseleave="this.style.background='rgba(239,68,68,0.15)'"
+              >⟲ CLEAR GRID</button>
+            </div>
           </div>
-          <div class="map-area">
+
+          <!-- MULTI-FLOOR TAB BAR (Phase 5 & 10) -->
+          <div id="floorTabBar" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--secondary);border-bottom:0.5px solid var(--border2);overflow-x:auto;">
+            <div style="font-size:9px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-right:4px;">FLOORS:</div>
+            <div id="floorTabsContainer" style="display:flex;align-items:center;gap:6px;">
+              <button class="floor-tab active" onclick="selectFloorTab('ALL')" style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;border:none;cursor:pointer;">ALL FLOORS</button>
+            </div>
+          </div>
+
+          <div class="map-area" style="position:relative;">
+            <!-- NO ACTIVE SCAN OVERLAY (Phase 3 & 13) -->
+            <div id="noScanOverlay" style="position:absolute;inset:0;z-index:20;background:rgba(5,5,5,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;transition:opacity 0.4s ease;">
+              <div style="font-size:16px;font-weight:900;letter-spacing:3px;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">TIDDA MAPPING</div>
+              <div id="noScanStatusText" style="font-size:11px;font-weight:700;letter-spacing:2px;color:#ef4444;font-family:'JetBrains Mono',monospace;">NO ACTIVE SCAN</div>
+              <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px;">Assign a floor and start scan to visualize real-time world model</div>
+            </div>
+
+            <!-- FUSION STATUS OVERLAY (Phase 9) -->
+            <div id="fusionStatusOverlay" style="position:absolute;top:10px;left:10px;z-index:25;background:rgba(14,14,14,0.9);border:1px solid rgba(37,99,235,0.4);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;display:none;">
+              <div style="font-weight:800;color:var(--accent);letter-spacing:1px;">FUSION ENGINE</div>
+              <div id="fusionStatusText" style="color:var(--text);margin-top:2px;">Confidence: --</div>
+              <div id="fusionDecisionsText" style="color:var(--muted);font-size:8px;margin-top:2px;">Decisions: None</div>
+            </div>
+
+            <!-- OBSERVATION INSPECTION DRAWER (Phase 8) -->
+            <div id="obsDetailDrawer" style="position:absolute;bottom:10px;right:10px;z-index:30;background:#0e0e0e;border:1px solid var(--accent);border-radius:8px;padding:10px 12px;width:220px;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.6);font-family:'JetBrains Mono',monospace;">
+              <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:6px;">
+                <span style="font-weight:800;color:var(--accent);font-size:10px;" id="obsTypeTitle">OBSERVATION</span>
+                <button onclick="document.getElementById('obsDetailDrawer').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;">✕</button>
+              </div>
+              <div style="font-size:9px;line-height:1.5;color:var(--text);">
+                <div>Class: <span id="obsClassVal" style="color:#fff;font-weight:700;">--</span></div>
+                <div>Confidence: <span id="obsConfVal" style="color:#10b981;font-weight:700;">--</span></div>
+                <div>Source: <span id="obsSourceVal" style="color:#06b6d4;">--</span></div>
+                <div>Floor: <span id="obsFloorVal" style="color:#f59e0b;">--</span></div>
+                <div>Time: <span id="obsTimeVal" style="color:var(--muted);">--</span></div>
+              </div>
+            </div>
+
             <svg class="msv" viewBox="0 0 460 400">
               <defs>
                 <pattern id="mgrid" width="22" height="22" patternUnits="userSpaceOnUse">
@@ -1506,6 +1546,10 @@
 
               <!-- COVERAGE GRID — filled by mapping-mode phone nodes -->
               <g id="coverageGrid"></g>
+
+              <!-- SHARED WORLD MODEL OBSERVATIONS GROUP (Phase 7) -->
+              <g id="worldObsGroup"></g>
+
 
               <!-- FLIGHT PATH TRAILS -->
               <g id="flightTrails">
@@ -2530,8 +2574,26 @@
         <button onclick="event.stopPropagation();sendCmd('destroy_node','${droneId}')" style="flex:1;font-size:7px;padding:2px;background:rgba(239,68,68,0.08);border:0.5px solid rgba(239,68,68,0.2);color:#ef4444;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;">DESTROY</button>
       `;
       card.appendChild(btnRow);
+
+      // Step 9 Mapping & Floor Assignment Control Row
+      const mapRow = document.createElement('div');
+      mapRow.style.cssText = 'display:flex;align-items:center;gap:3px;margin-top:4px;background:rgba(5,5,5,0.6);padding:3px;border-radius:4px;border:0.5px solid var(--border);';
+      mapRow.innerHTML = `
+        <select id="floorSel-${droneId}" onclick="event.stopPropagation()" style="flex:1;font-size:8px;font-family:'JetBrains Mono',monospace;background:var(--panel);color:var(--text);border:0.5px solid var(--border);border-radius:3px;padding:2px;">
+          <option value="FLOOR-1">FLOOR-1</option>
+          <option value="FLOOR-2">FLOOR-2</option>
+          <option value="FLOOR-3">FLOOR-3</option>
+          <option value="FLOOR-4">FLOOR-4</option>
+        </select>
+        <button onclick="event.stopPropagation();assignFloorForNode('${droneId}', document.getElementById('floorSel-${droneId}').value)" style="font-size:7px;padding:2px 4px;background:rgba(37,99,235,0.2);border:0.5px solid rgba(37,99,235,0.4);color:#3b82f6;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;">ASSIGN</button>
+        <button onclick="event.stopPropagation();startScanForNode('${droneId}')" style="font-size:7px;padding:2px 4px;background:rgba(16,185,129,0.2);border:0.5px solid rgba(16,185,129,0.4);color:#10b981;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;">▶ SCAN</button>
+        <button onclick="event.stopPropagation();stopScanForNode('${droneId}')" style="font-size:7px;padding:2px 4px;background:rgba(239,68,68,0.2);border:0.5px solid rgba(239,68,68,0.4);color:#ef4444;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;">⏹ STOP</button>
+      `;
+      card.appendChild(mapRow);
+
       container.appendChild(card);
     }
+
 
     function sendCmd(action, droneId) {
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -2710,6 +2772,229 @@
     }
 
     /* ============================================================
+      WORLD MODEL & MULTI-FLOOR GCS STATE (Step 9)
+      ============================================================ */
+    let currentSelectedFloorId = "ALL";
+    let latestWorldModelData = null;
+    let latestScanSessionData = null;
+    let nodeFloorAssignments = {};
+
+    function selectFloorTab(floorId) {
+      currentSelectedFloorId = floorId;
+      if (latestWorldModelData) {
+        renderWorldState(latestWorldModelData);
+      }
+    }
+
+    function renderFloorTabBar(floors) {
+      const container = document.getElementById('floorTabsContainer');
+      if (!container) return;
+
+      const floorIds = Object.keys(floors || {}).sort();
+      let html = `<button class="floor-tab ${currentSelectedFloorId === 'ALL' ? 'active' : ''}" onclick="selectFloorTab('ALL')" style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px;border-radius:4px;background:${currentSelectedFloorId === 'ALL' ? 'var(--accent)' : 'var(--panel)'};color:${currentSelectedFloorId === 'ALL' ? '#fff' : 'var(--text)'};border:1px solid var(--border);cursor:pointer;">ALL FLOORS</button>`;
+
+      for (const fid of floorIds) {
+        const f = floors[fid];
+        const isActive = currentSelectedFloorId === fid;
+        const statusCol = f.status === 'ACTIVE' ? '#10b981' : f.status === 'PAUSED' ? '#f59e0b' : 'var(--muted)';
+        html += `<button class="floor-tab ${isActive ? 'active' : ''}" onclick="selectFloorTab('${fid}')" style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:3px 8px;border-radius:4px;background:${isActive ? 'var(--accent)' : 'var(--panel)'};color:${isActive ? '#fff' : 'var(--text)'};border:1px solid ${isActive ? 'var(--accent)' : 'var(--border)'};cursor:pointer;display:flex;align-items:center;gap:4px;">
+          <span>${fid}</span>
+          <span style="font-size:7px;color:${statusCol};">● ${f.status}</span>
+          <span style="font-size:7px;color:var(--muted);">(${f.observation_count || 0} obs)</span>
+        </button>`;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function renderWorldState(data) {
+      if (!data) return;
+      latestWorldModelData = data;
+
+      const floors = data.floors || {};
+      const observations = data.shared_observations || [];
+      const landmarks = data.shared_landmarks || [];
+      const fusionHistory = data.fusion_history || [];
+
+      // Update Floor Tab Bar
+      renderFloorTabBar(floors);
+
+      // Check Active Scan & Observations Presence (Phase 3 & 13)
+      const noScanOverlay = document.getElementById('noScanOverlay');
+      const noScanStatusText = document.getElementById('noScanStatusText');
+      const activeScanExists = (latestScanSessionData && latestScanSessionData.active) || (latestScanSessionData && (latestScanSessionData.scanning_node_ids || []).length > 0);
+
+      if (noScanOverlay) {
+        if (!activeScanExists && observations.length === 0) {
+          noScanOverlay.style.opacity = '1';
+          noScanOverlay.style.pointerEvents = 'auto';
+          if (noScanStatusText) noScanStatusText.textContent = 'NO ACTIVE SCAN';
+        } else if (activeScanExists && observations.length === 0) {
+          noScanOverlay.style.opacity = '0.4';
+          noScanOverlay.style.pointerEvents = 'none';
+          if (noScanStatusText) noScanStatusText.textContent = 'SCAN ACTIVE — AWAITING OBSERVATIONS';
+        } else {
+          noScanOverlay.style.opacity = '0';
+          noScanOverlay.style.pointerEvents = 'none';
+        }
+      }
+
+      // Filter observations by selected floor
+      let filteredObs = observations;
+      if (currentSelectedFloorId !== 'ALL') {
+        filteredObs = observations.filter(o => o.floor_id === currentSelectedFloorId);
+      }
+
+      // Render Observations on Map Canvas (Phase 7 & 8)
+      renderMapObservations(filteredObs);
+
+      // Render Fusion Status Overlay (Phase 9)
+      renderFusionStatus(fusionHistory);
+
+      // Update Map Footer Text
+      const mft = document.getElementById('mapFooterText');
+      if (mft) {
+        const floorCount = Object.keys(floors).length;
+        const activeCount = Object.values(floors).filter(f => f.status === 'ACTIVE').length;
+        mft.textContent = `BUILDING: ${data.building_id || 'BLDG-01'} | FLOORS: ${floorCount} (${activeCount} ACTIVE) | OBS: ${observations.length} | NODES: ${data.participating_nodes ? data.participating_nodes.length : 0}`;
+      }
+    }
+
+    function renderMapObservations(observations) {
+      const obsGroup = document.getElementById('worldObsGroup');
+      if (!obsGroup) return;
+
+      obsGroup.innerHTML = '';
+      const ns = 'http://www.w3.org/2000/svg';
+
+      // Supported observation classes (Do NOT render unsupplied architectural classes)
+      const classColors = {
+        'person': '#ef4444',
+        'chair': '#3b82f6',
+        'table': '#f59e0b',
+        'laptop': '#10b981',
+        'obstacle': '#f97316',
+        'object': '#06b6d4',
+      };
+
+      observations.forEach((obs, idx) => {
+        // Place observations pseudo-spatially on map canvas using hashing / timestamp offset if exact coordinates are local
+        const classColor = classColors[obs.class_name] || '#8b5cf6';
+        let cx = 100 + ((idx * 67 + (obs.observation_id ? obs.observation_id.charCodeAt(0) : 0) * 13) % 260);
+        let cy = 80 + ((idx * 43 + (obs.observation_id ? obs.observation_id.charCodeAt(1) : 0) * 17) % 240);
+
+        const g = document.createElementNS(ns, 'g');
+        g.setAttribute('class', 'obs-marker');
+        g.setAttribute('cursor', 'pointer');
+
+        const circle = document.createElementNS(ns, 'circle');
+        circle.setAttribute('cx', cx.toFixed(1));
+        circle.setAttribute('cy', cy.toFixed(1));
+        circle.setAttribute('r', '5');
+        circle.setAttribute('fill', classColor);
+        circle.setAttribute('stroke', '#ffffff');
+        circle.setAttribute('stroke-width', '1');
+        circle.setAttribute('opacity', '0.9');
+
+        const text = document.createElementNS(ns, 'text');
+        text.setAttribute('x', (cx + 7).toFixed(1));
+        text.setAttribute('y', (cy + 3).toFixed(1));
+        text.setAttribute('fill', classColor);
+        text.setAttribute('font-size', '7');
+        text.setAttribute('font-family', 'JetBrains Mono, monospace');
+        text.setAttribute('font-weight', '700');
+        text.textContent = `${obs.class_name.toUpperCase()} [${Math.round(obs.confidence * 100)}%]`;
+
+        g.appendChild(circle);
+        g.appendChild(text);
+
+        // Click listener for observation detail inspection (Phase 8)
+        g.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showObservationDetails(obs);
+        });
+
+        obsGroup.appendChild(g);
+      });
+    }
+
+    function showObservationDetails(obs) {
+      const drawer = document.getElementById('obsDetailDrawer');
+      if (!drawer) return;
+
+      document.getElementById('obsTypeTitle').textContent = `OBSERVATION — ${obs.observation_id ? obs.observation_id.substring(0, 8) : 'ID'}`;
+      document.getElementById('obsClassVal').textContent = (obs.class_name || 'UNKNOWN').toUpperCase();
+      document.getElementById('obsConfVal').textContent = `${Math.round((obs.confidence || 0) * 100)}%`;
+      document.getElementById('obsSourceVal').textContent = obs.node_id || 'UNKNOWN';
+      document.getElementById('obsFloorVal').textContent = obs.floor_id || 'UNASSIGNED';
+      const ts = new Date((obs.timestamp || time.time()) * 1000);
+      document.getElementById('obsTimeVal').textContent = ts.toLocaleTimeString();
+
+      drawer.style.display = 'block';
+    }
+
+    function renderFusionStatus(fusionHistory) {
+      const overlay = document.getElementById('fusionStatusOverlay');
+      const textConf = document.getElementById('fusionStatusText');
+      const textDec = document.getElementById('fusionDecisionsText');
+
+      if (!overlay || !fusionHistory || fusionHistory.length === 0) {
+        if (overlay) overlay.style.display = 'none';
+        return;
+      }
+
+      overlay.style.display = 'block';
+      const latest = fusionHistory[fusionHistory.length - 1];
+      const confPct = Math.round((latest.confidence || 0) * 100);
+
+      if (textConf) textConf.textContent = `Confidence: ${confPct}% (Nodes: ${latest.participating_nodes ? latest.participating_nodes.length : 0})`;
+
+      const decisions = latest.merge_decisions || {};
+      const decList = Object.entries(decisions).map(([pair, dec]) => `${pair}: ${dec}`).join(' | ');
+      if (textDec) textDec.textContent = decList ? `Decisions: ${decList}` : `Decisions: None`;
+    }
+
+    function renderScanState(data) {
+      latestScanSessionData = data;
+      const activeCount = (data.scanning_node_ids || []).length;
+      addLog('ei', `SCAN STATE: session active=${data.active}, scanning nodes=${activeCount}`);
+    }
+
+    function assignFloorForNode(nodeId, floorId) {
+      if (!nodeId || !floorId) return;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'floor_assign',
+          node_id: nodeId,
+          floor_id: floorId,
+        }));
+        addLog('ei', `🏢 Assigned ${nodeId} → ${floorId}`);
+      }
+    }
+
+    function startScanForNode(nodeId) {
+      if (!nodeId) return;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'scan_start',
+          node_id: nodeId,
+        }));
+        addLog('ei', `▶ Scan start command sent for ${nodeId}`);
+      }
+    }
+
+    function stopScanForNode(nodeId) {
+      if (!nodeId) return;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'scan_stop',
+          node_id: nodeId,
+        }));
+        addLog('ei', `⏹ Scan stop command sent for ${nodeId}`);
+      }
+    }
+
+    /* ============================================================
       LIVE BACKEND CONNECTION (WEBSOCKETS)
       ============================================================ */
     const ws = new WebSocket("ws://localhost:8000/ws/ui");
@@ -2722,13 +3007,37 @@
         sigTxt.style.color = '#10b981';
       }
       addLog('ei', 'C2 WebSocket LIVE — telemetry streaming');
+
+      // Request initial world state and scan state
+      ws.send(JSON.stringify({ type: 'world_state' }));
+      ws.send(JSON.stringify({ type: 'scan_state' }));
+
+      // Periodic polling for live state updates (Phase 11)
+      setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'world_state' }));
+        }
+      }, 2000);
     };
 
     ws.onmessage = function (event) {
       const data = JSON.parse(event.data);
 
+      // ── Step 9: World State update ───────────────────────────
+      if (data.type === 'world_state') {
+        renderWorldState(data);
+        return;
+      }
+
+      // ── Step 9: Scan State update ────────────────────────────
+      if (data.type === 'scan_state') {
+        renderScanState(data);
+        return;
+      }
+
       // ── Live video frames from mobile phone camera ───────────
       if (data.type === 'live_frame') {
+
         const camFeed = document.getElementById('camFeed');
         let liveImg = document.getElementById('liveFeedImg');
         if (!liveImg) {

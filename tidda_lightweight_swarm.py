@@ -29,6 +29,8 @@ from weapon_systems import (
 from swarm_logic import GridPlanner, WakeTriggerType
 from mobile_node import MobileNodeRegistry, NODE_TIMEOUT_S  # Step 2a
 from coverage_grid import CoverageGrid
+from scan_session import ScanSession
+from mapping_pipeline import MappingPipeline
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -889,6 +891,12 @@ def _get_coverage_grid(node_id: str) -> CoverageGrid:
 # Sentry detector — lazy-loaded YOLOv8n for person detection (import deferred)
 _sentry_detector = None  # Initialized in main() to avoid import-time YOLO load
 
+# Scan session — manages IDLE/SCANNING/PAUSED state per mobile node (Step 2)
+_scan_session: ScanSession = ScanSession()
+
+# Mapping pipeline — orchestrates Step 1-7 mapping subsystems (Step 8)
+_mapping_pipeline: MappingPipeline = MappingPipeline(scan_session=_scan_session)
+
 
 def _find_drone(drone_id: str) -> Optional[DroneUnit]:
     """Look up a drone by its ID string (e.g. 'TIDDA-01')."""
@@ -1235,6 +1243,9 @@ async def _ws_handler(
                 mobile_node_id = node_id
                 # Phones must not receive the full swarm broadcast — bandwidth.
                 _connected.discard(websocket)
+                # Register in scan session as IDLE (Step 2)
+                _scan_session.connect_node(node_id)
+                _mapping_pipeline.register_node(node_id)
                 log("MOBILE", f"📱 Node registered: {node_id}  mode={node_mode}  addr={addr}  "
                               f"(mobile nodes: {_mobile_registry.count()})")
                 continue
@@ -1242,6 +1253,7 @@ async def _ws_handler(
             # ── MOBILE: telemetry update + coverage grid ─────────────────
             if msg_type == "telemetry" and mobile_node_id is not None:
                 _mobile_registry.update_telemetry(mobile_node_id, msg)
+                _mapping_pipeline.process_telemetry(mobile_node_id, msg)
 
                 # Coverage grid: record GPS position only when camera is ON
                 camera_on = bool(msg.get("camera_active", False))
@@ -1327,6 +1339,9 @@ async def _ws_handler(
 
                     asyncio.create_task(_run_sentry(mobile_node_id, frame_data))
 
+                # ── Mapping pipeline camera ingestion (Step 8) ───────────
+                _mapping_pipeline.process_camera_frame(mobile_node_id, frame_data)
+
                 # ── Live feed / sentry+live: relay frame to dashboards ───
                 if _node_mode in ("live_feed", "sentry") and frame_data:
                     live_payload = json.dumps({
@@ -1354,6 +1369,69 @@ async def _ws_handler(
                     _node.mode = new_mode
                     log("MOBILE", f"🔄 {mobile_node_id} mode → {new_mode}")
                 continue
+
+            # ── SCAN SESSION: scan control messages (Step 2) ──────────
+            if msg_type == "scan_start":
+                target = msg.get("node_id", mobile_node_id)
+                if msg.get("session", False):
+                    _scan_session.start_session()
+                    log("SCAN", "▶ Scan session started")
+                elif target:
+                    ok = _scan_session.start_node_scan(target)
+                    log("SCAN", f"▶ Node scan {'started' if ok else 'FAILED'}: {target}")
+                continue
+
+            if msg_type == "scan_stop":
+                target = msg.get("node_id", mobile_node_id)
+                if msg.get("session", False):
+                    _scan_session.stop_session()
+                    log("SCAN", "⏹ Scan session stopped")
+                elif target:
+                    ok = _scan_session.stop_node_scan(target)
+                    log("SCAN", f"⏹ Node scan {'stopped' if ok else 'FAILED'}: {target}")
+                continue
+
+            if msg_type == "scan_pause" and mobile_node_id is not None:
+                ok = _scan_session.pause_node_scan(mobile_node_id)
+                log("SCAN", f"⏸ Node scan {'paused' if ok else 'FAILED'}: {mobile_node_id}")
+                continue
+
+            if msg_type == "scan_resume" and mobile_node_id is not None:
+                ok = _scan_session.resume_node_scan(mobile_node_id)
+                log("SCAN", f"▶ Node scan {'resumed' if ok else 'FAILED'}: {mobile_node_id}")
+                continue
+
+            if msg_type == "scan_state":
+                state_json = json.dumps({
+                    "type": "scan_state",
+                    **_scan_session.to_state(),
+                })
+                try:
+                    await websocket.send(state_json)
+                except Exception:
+                    pass
+                continue
+
+            # ── MAPPING PIPELINE: floor assignment & world state (Step 8) ─
+            if msg_type == "floor_assign":
+                target_nid = msg.get("node_id", mobile_node_id)
+                target_fid = msg.get("floor_id", "")
+                if target_nid and target_fid:
+                    ok = _mapping_pipeline.assign_node_to_floor(target_nid, target_fid)
+                    log("MAPPING", f"🏢 Floor assign {'success' if ok else 'failed'}: {target_nid} → {target_fid}")
+                continue
+
+            if msg_type == "world_state":
+                world_json = json.dumps({
+                    "type": "world_state",
+                    **_mapping_pipeline.get_world_state(),
+                })
+                try:
+                    await websocket.send(world_json)
+                except Exception:
+                    pass
+                continue
+
 
             # ── DASHBOARD: clear coverage grid ─────────────────────────
             if msg_type == "command" and msg.get("action") == "clear_grid":
@@ -1402,6 +1480,8 @@ async def _ws_handler(
         if mobile_node_id is not None:
             # Clean disconnect from a phone — remove from registry.
             _mobile_registry.remove(mobile_node_id)
+            _scan_session.disconnect_node(mobile_node_id)  # Step 2
+            _mapping_pipeline.handle_node_disconnect(mobile_node_id)  # Step 8
             log("MOBILE", f"📴 Node disconnected: {mobile_node_id}  "
                           f"(mobile nodes: {_mobile_registry.count()})")
         else:
@@ -1516,6 +1596,8 @@ async def mobile_watchdog_loop() -> None:  # Step 2e
             await asyncio.sleep(interval)
             dropped = _mobile_registry.prune_stale(NODE_TIMEOUT_S)
             for node_id in dropped:
+                _scan_session.disconnect_node(node_id)  # Step 2
+                _mapping_pipeline.handle_node_disconnect(node_id)  # Step 8
                 log("MOBILE", f"⏱ Pruned stale node: {node_id}")
                 if _connected:
                     offline_msg = json.dumps({
