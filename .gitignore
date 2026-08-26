@@ -1,5 +1,31 @@
+# Secrets
 .env
-.venv/
+
+# Python
 __pycache__/
 *.pyc
+
+# Virtual environment
+.venv/
+
+# IDE
+.vscode/
+
+# Certificates (machine-specific)
 cert/
+local-cert.pem
+local-key.pem
+
+# Generated output
+reconstruction_workspace/
+output/
+
+# Model cache
+*.onnx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/

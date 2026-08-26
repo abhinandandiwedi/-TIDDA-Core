@@ -1,0 +1,16 @@
+# Core orchestration uses only the Python standard library.
+# Optional stages install their own upstream environments.
+# Nerfstudio: follow https://docs.nerf.studio/quickstart/installation.html
+# Gaussian Splatting: clone the official repo recursively and use its environment.yml.
+pytest>=7.0
+
+# Streamlit MVP: video -> monocular depth -> Open3D point cloud
+streamlit>=1.35
+opencv-python>=4.8
+numpy>=1.24
+open3d>=0.18
+torch>=2.1
+transformers>=4.40
+pillow>=10.0
+matplotlib>=3.8
+plotly>=5.20

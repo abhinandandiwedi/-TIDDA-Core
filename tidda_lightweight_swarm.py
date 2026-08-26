@@ -14,6 +14,7 @@ import math
 import os
 import random
 import signal
+import ssl
 import sys
 import time
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ from mobile_node import MobileNodeRegistry, NODE_TIMEOUT_S  # Step 2a
 from coverage_grid import CoverageGrid
 from scan_session import ScanSession
 from mapping_pipeline import MappingPipeline
+from fusion_engine import FusionEngine
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -112,6 +114,9 @@ CONSOLE_TICK_S: float = 5.0
 # WebSocket server binding
 WS_HOST: str = "0.0.0.0"   # Listen on all interfaces — required for LAN phone clients
 WS_PORT: int = 8000
+WSS_PORT: int = 8443
+TLS_CERT_FILE: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local-cert.pem")
+TLS_KEY_FILE: str = os.path.join(os.path.dirname(os.path.abspath(__file__)), "local-key.pem")
 
 # ── Groq AI proxy (server-side, key from environment) ─────────────
 GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
@@ -876,6 +881,7 @@ _swarm_ref: List[DroneUnit] = []
 
 # Mobile node registry — phones connect here; physics_loop never touches it
 _mobile_registry: MobileNodeRegistry = MobileNodeRegistry()  # Step 2b
+MAX_MOBILE_CONNECTIONS = 5
 
 # Coverage grids — per-node, lazily created on first telemetry
 _coverage_grids: Dict[str, CoverageGrid] = {}
@@ -888,8 +894,75 @@ def _get_coverage_grid(node_id: str) -> CoverageGrid:
         log("GRID", f"📐 New coverage grid for {node_id}  cell=5m")
     return _coverage_grids[node_id]
 
+
+def _unique_mobile_node_id(requested_id: str) -> str:
+    """Keep simultaneous phones distinct even when they use the default ID."""
+    base_id = requested_id.strip() or "PHONE"
+    candidate = base_id
+    suffix = 2
+    while _mobile_registry.get_node(candidate) is not None:
+        candidate = f"{base_id}-{suffix}"
+        suffix += 1
+    return candidate
+
+
 # Sentry detector — lazy-loaded YOLOv8n for person detection (import deferred)
 _sentry_detector = None  # Initialized in main() to avoid import-time YOLO load
+
+# Detection-fusion engine — multi-node entity tracking from sentry detections
+_fusion_engine = FusionEngine(
+    distance_threshold_m=100.0,
+    time_window_s=10.0,
+    stale_after_s=15.0,
+)
+
+# Detection-fusion events waiting for the next dashboard broadcast pass.
+_fusion_alerts: List[dict] = []
+
+
+def _broadcast_fusion_alert_later(alert: dict) -> None:
+    """Queue a fusion event for the next broadcast cycle."""
+    _fusion_alerts.append(alert)
+
+
+def _process_fusion_detection(
+    node_id: str,
+    lat: float,
+    lon: float,
+    confidence: float,
+    class_name: str,
+    timestamp: float,
+) -> Optional[dict]:
+    """Feed a detection into FusionEngine and queue a structured alert."""
+    try:
+        fused = _fusion_engine.add_detection(
+            node_id=node_id,
+            lat=float(lat),
+            lon=float(lon),
+            confidence=float(confidence),
+            class_name=class_name,
+            timestamp=float(timestamp),
+        )
+    except Exception as exc:
+        log("FUSION", f"Detection fusion failed for {node_id}: {exc}")
+        return None
+
+    alert = {
+        "type": "fusion_alert",
+        "action": fused["action"],
+        "entity": fused,
+        "timestamp": time.time(),
+    }
+    _broadcast_fusion_alert_later(alert)
+
+    log(
+        "FUSION",
+        f"{fused['action'].upper()} {fused['entity_id']} | "
+        f"class={fused.get('class_name', '?')}  conf={fused.get('confidence', 0):.2f}  "
+        f"node={node_id}",
+    )
+    return fused
+
 
 # Scan session — manages IDLE/SCANNING/PAUSED state per mobile node (Step 2)
 _scan_session: ScanSession = ScanSession()
@@ -1237,7 +1310,8 @@ async def _ws_handler(
 
             # ── MOBILE: node registration ────────────────────────────
             if msg_type == "node_register":
-                node_id: str = msg.get("node_id", f"PHONE-{addr}")
+                raw_id: str = msg.get("node_id", f"PHONE-{addr}")
+                node_id = _unique_mobile_node_id(raw_id)
                 node_mode: str = msg.get("mode", "mapping")
                 _mobile_registry.register(node_id, mode=node_mode)
                 mobile_node_id = node_id
@@ -1294,6 +1368,9 @@ async def _ws_handler(
             if msg_type == "camera_frame" and mobile_node_id is not None:
                 frame_data = msg.get("frame", "")
                 frame_size = len(frame_data)
+                frame_timestamp = float(msg.get("timestamp", time.time()))
+                frame_lat = msg.get("lat")
+                frame_lon = msg.get("lon", msg.get("lng"))
                 log("CAMERA", f"📷 Frame from {mobile_node_id}  "
                               f"size={frame_size} chars  "
                               f"ts={msg.get('timestamp', '?')}")
@@ -1316,18 +1393,49 @@ async def _ws_handler(
                             return
                         if result is None:
                             return  # No detection or rate-limited
-                        # Person detected! Broadcast alert
+
+                        # Person detected -> feed the node GPS detection into
+                        # the multi-node FusionEngine. Camera-frame messages may
+                        # carry their own GPS; otherwise use the registered node's
+                        # latest telemetry position.
+                        detection_ts = frame_timestamp
+                        node_lat = frame_lat
+                        node_lon = frame_lon
+
+                        node_obj = _mobile_registry.get_node(node_id)
+                        if node_lat is None and node_obj is not None:
+                            node_lat = getattr(node_obj, "lat", None)
+                        if node_lon is None and node_obj is not None:
+                            node_lon = getattr(node_obj, "lon", getattr(node_obj, "lng", None))
+
+                        # Keep the original Sentry alert fields while adding the
+                        # fused entity when GPS is available.
+                        fused_entity = None
+                        if (node_lat is not None and node_lon is not None
+                            and (float(node_lat) != 0.0 or float(node_lon) != 0.0)):
+                            for _ in range(max(1, int(result.get("person_count", 1)))):
+                                fused_entity = _process_fusion_detection(
+                                    node_id=node_id,
+                                    lat=float(node_lat),
+                                    lon=float(node_lon),
+                                    confidence=float(result["confidence"]),
+                                    class_name="person",
+                                    timestamp=detection_ts,
+                                )
+
                         alert = {
                             "type": "sentry_alert",
                             "node_id": node_id,
                             "confidence": result["confidence"],
                             "person_count": result["person_count"],
-                            "timestamp": time.time(),
+                            "timestamp": detection_ts,
+                            "fusion": fused_entity,
                         }
                         alert_json = json.dumps(alert)
                         log("SENTRY", f"🚨 PERSON DETECTED by {node_id}  "
                                       f"conf={result['confidence']:.2f}  "
-                                      f"count={result['person_count']}")
+                                      f"count={result['person_count']}"
+                                      + (f"  entity={fused_entity['entity_id']}" if fused_entity else "  GPS=unavailable"))
                         stale_clients: list = []
                         for client in list(_connected):
                             try:
@@ -1358,6 +1466,7 @@ async def _ws_handler(
                             stale.append(client)
                     for client in stale:
                         _connected.discard(client)
+                    log("CAMERA", f"Frame relayed from {mobile_node_id} to {len(_connected)} dashboard client(s)")
 
                 continue
 
@@ -1543,6 +1652,18 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                                 await client.send(payload)
                             except Exception:
                                 pass
+
+                # Broadcast pending data-fusion events to dashboards.
+                if _fusion_alerts:
+                    pending_fusion = list(_fusion_alerts)
+                    _fusion_alerts.clear()
+                    for fusion_alert in pending_fusion:
+                        payload = json.dumps(fusion_alert)
+                        for client in list(_connected):
+                            try:
+                                await client.send(payload)
+                            except Exception:
+                                stale.append(client)
 
                 # Step 2d — Broadcast mobile node telemetry to dashboard clients
                 for telem in _mobile_registry.all_telemetry():
@@ -1743,6 +1864,7 @@ async def main() -> None:
 
     # ── Start WebSocket server ────────────────────────────────────
     ws_server: Optional[websockets.WebSocketServer] = None
+    wss_server: Optional[websockets.WebSocketServer] = None
     try:
         ws_server = await websockets.serve(
             _ws_handler,
@@ -1753,6 +1875,24 @@ async def main() -> None:
             close_timeout=5,        # don't wait forever on close handshake
         )
         log("WS", f"Server listening on ws://{WS_HOST}:{WS_PORT}/ws/ui")
+
+        # ── Secure WebSocket for mobile nodes over LAN ────────────────
+        if os.path.isfile(TLS_CERT_FILE) and os.path.isfile(TLS_KEY_FILE):
+            tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            tls_context.load_cert_chain(TLS_CERT_FILE, TLS_KEY_FILE)
+            wss_server = await websockets.serve(
+                _ws_handler,
+                WS_HOST,
+                WSS_PORT,
+                ssl=tls_context,
+                ping_interval=20,
+                ping_timeout=20,
+                close_timeout=5,
+            )
+            log("WS", f"Secure mobile WebSocket: wss://{WS_HOST}:{WSS_PORT}/ws/mobile")
+        else:
+            log("WS", "Secure mobile WebSocket unavailable — local certificate not found")
+
         log("SYSTEM", "All systems online — waiting for GCS dashboard connections…")
         log("SYSTEM", "Press Ctrl+C to shut down cleanly.")
 
@@ -1770,6 +1910,11 @@ async def main() -> None:
             ws_server.close()
             await ws_server.wait_closed()
             log("WS", "Server closed")
+
+        if wss_server is not None:
+            wss_server.close()
+            await wss_server.wait_closed()
+            log("WS", "Secure server closed")
 
         # 2. Close all active dashboard connections gracefully
         if _connected:
