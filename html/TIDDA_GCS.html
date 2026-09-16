@@ -1559,6 +1559,1742 @@
     .glow-green {
       text-shadow: 0 0 8px var(--green-glow);
     }
+
+    /* ══════════════════════════════════════════════════════════════
+       SWARM TOPOLOGY VIEW
+       ══════════════════════════════════════════════════════════════ */
+    #tactical-view {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    #swarm-view {
+      display: none;
+      flex: 1;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    .swarm-topology-panel {
+      flex: 1;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 0 40px rgba(0, 229, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .swarm-topology-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      gap: 12px;
+      border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .swarm-topology-panel .panel-title {
+      font-size: 11px;
+      letter-spacing: 2.5px;
+      font-weight: 800;
+      color: var(--cyan);
+      text-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .network-health-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      animation: health-pulse 2.5s ease-in-out infinite;
+    }
+
+    .network-health-badge.degraded {
+      background: rgba(255, 61, 0, 0.12);
+      color: #FF6E40;
+      border: 1px solid rgba(255, 61, 0, 0.3);
+    }
+
+    .network-health-badge .health-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #FF6E40;
+      box-shadow: 0 0 6px rgba(255, 61, 0, 0.6);
+      animation: health-dot-blink 1.2s ease-in-out infinite;
+    }
+
+    @keyframes health-pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.7;
+      }
+    }
+
+    @keyframes health-dot-blink {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 6px rgba(255, 61, 0, 0.6);
+      }
+
+      50% {
+        opacity: 0.3;
+        box-shadow: 0 0 2px rgba(255, 61, 0, 0.2);
+      }
+    }
+
+    .topology-canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at center, rgba(0, 229, 255, 0.02) 0%, transparent 70%),
+        var(--bg-primary);
+    }
+
+    #topology-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Swarm stats sidebar within swarm view */
+    .swarm-stats-sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .swarm-stats-sidebar .panel-header {
+      height: 30px;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--panel-pad);
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .swarm-stat-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .swarm-stat-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .swarm-stat-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .swarm-stat-value.cyan {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .swarm-stat-value.green {
+      color: var(--green);
+      text-shadow: 0 0 8px var(--green-glow);
+    }
+
+    .swarm-stat-value.amber {
+      color: var(--amber);
+    }
+
+    .swarm-stat-value.red {
+      color: var(--red);
+      text-shadow: 0 0 8px var(--red-glow);
+    }
+
+    .swarm-node-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .swarm-node-entry {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      transition: border-color 0.2s;
+    }
+
+    .swarm-node-entry:hover {
+      border-color: var(--border-accent);
+    }
+
+    .swarm-node-entry .node-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .swarm-node-entry .node-dot.ok {
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan-glow);
+    }
+
+    .swarm-node-entry .node-dot.warn {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red-glow);
+      animation: health-dot-blink 1s ease-in-out infinite;
+    }
+
+    .swarm-node-entry .node-name {
+      color: var(--text-primary);
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .swarm-node-entry .node-latency {
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ALERTS VIEW
+       ══════════════════════════════════════════════════════════════ */
+    #alerts-view {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    .alerts-main-grid {
+      flex: 1;
+      display: flex;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    /* ── Threat Geolocation Panel ── */
+    .threat-geo-panel {
+      flex: 1.6;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 0 30px rgba(255, 61, 0, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .threat-geo-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(255, 61, 0, 0.15);
+    }
+
+    .threat-geo-panel .panel-title .accent {
+      color: var(--red);
+      text-shadow: 0 0 8px var(--red-glow);
+    }
+
+    .threat-map-container {
+      flex: 1;
+      position: relative;
+      background: #060910;
+      overflow: hidden;
+    }
+
+    /* Animated tactical grid */
+    .threat-grid-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background:
+        linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Concentric range rings */
+    .threat-grid-canvas::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 80%;
+      height: 80%;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(0, 229, 255, 0.06);
+      border-radius: 50%;
+      box-shadow:
+        0 0 0 60px transparent,
+        0 0 0 61px rgba(0, 229, 255, 0.04),
+        0 0 0 120px transparent,
+        0 0 0 121px rgba(0, 229, 255, 0.03);
+    }
+
+    /* Rotating sweep line */
+    .threat-grid-canvas::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 45%;
+      height: 2px;
+      transform-origin: 0% 50%;
+      background: linear-gradient(90deg, rgba(0, 229, 255, 0.5), transparent);
+      animation: radar-sweep 4s linear infinite;
+    }
+
+    @keyframes radar-sweep {
+      from {
+        transform: rotate(0deg);
+      }
+
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Crosshair center */
+    .threat-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+    }
+
+    .threat-crosshair::before,
+    .threat-crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(0, 229, 255, 0.25);
+    }
+
+    .threat-crosshair::before {
+      top: 50%;
+      left: -300%;
+      width: 800%;
+      height: 1px;
+    }
+
+    .threat-crosshair::after {
+      left: 50%;
+      top: -300%;
+      height: 800%;
+      width: 1px;
+    }
+
+    /* Blinking threat markers */
+    .threat-marker {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .threat-marker::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--red);
+      animation: threat-blink 1.2s ease-in-out infinite;
+      box-shadow: 0 0 12px var(--red), 0 0 24px var(--red-glow);
+    }
+
+    .threat-marker::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 61, 0, 0.4);
+      animation: threat-ring-expand 2s ease-out infinite;
+    }
+
+    .threat-marker.amber::before {
+      background: var(--amber);
+      box-shadow: 0 0 12px var(--amber), 0 0 24px var(--amber-dim);
+    }
+
+    .threat-marker.amber::after {
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+
+    @keyframes threat-blink {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.6);
+      }
+    }
+
+    @keyframes threat-ring-expand {
+      0% {
+        transform: scale(0.5);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    /* Threat marker label */
+    .threat-marker-label {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: var(--red);
+      text-shadow: 0 0 6px var(--red-glow);
+      white-space: nowrap;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .threat-marker.amber .threat-marker-label {
+      color: var(--amber);
+      text-shadow: 0 0 6px var(--amber-dim);
+    }
+
+    /* Map overlay HUD text */
+    .threat-map-hud {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      line-height: 1.8;
+    }
+
+    .threat-map-hud .hud-val {
+      color: var(--cyan);
+    }
+
+    .threat-map-hud .hud-warn {
+      color: var(--red);
+      text-shadow: 0 0 6px var(--red-glow);
+    }
+
+    /* ── Critical Incidents Panel ── */
+    .incidents-panel {
+      flex: 1;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow:
+        0 0 30px rgba(255, 61, 0, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .incidents-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(255, 61, 0, 0.15);
+    }
+
+    .incidents-panel .panel-title .accent {
+      color: var(--red);
+      text-shadow: 0 0 8px var(--red-glow);
+    }
+
+    .incidents-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Incident Card */
+    .incident-card {
+      background: rgba(10, 14, 20, 0.85);
+      border: 1px solid rgba(255, 61, 0, 0.3);
+      border-left: 3px solid var(--red);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      position: relative;
+      transition: all 0.2s;
+      box-shadow: 0 0 12px rgba(255, 61, 0, 0.05);
+    }
+
+    .incident-card:hover {
+      border-color: rgba(255, 61, 0, 0.6);
+      box-shadow: 0 0 20px rgba(255, 61, 0, 0.1);
+      background: rgba(15, 18, 25, 0.95);
+    }
+
+    .incident-card.amber {
+      border-color: rgba(245, 158, 11, 0.3);
+      border-left-color: var(--amber);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.05);
+    }
+
+    .incident-card.amber:hover {
+      border-color: rgba(245, 158, 11, 0.6);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
+    }
+
+    .incident-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .incident-severity {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .incident-severity.critical {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(255, 61, 0, 0.3);
+    }
+
+    .incident-severity.warning {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .incident-severity .sev-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: threat-blink 1.2s ease-in-out infinite;
+    }
+
+    .incident-threat-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 1px;
+    }
+
+    .incident-timestamp {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-left: auto;
+      letter-spacing: 0.5px;
+    }
+
+    .incident-description {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 0.8px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .incident-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .incident-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .incident-meta-item .meta-val {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .incident-meta-item .meta-val.high {
+      color: var(--red);
+    }
+
+    .incident-meta-item .meta-val.med {
+      color: var(--amber);
+    }
+
+    .incident-coord {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .incident-coord .coord-val {
+      color: var(--green);
+      text-shadow: 0 0 4px var(--green-glow);
+    }
+
+    /* ── AI Courses of Action Panel ── */
+    .coa-panel {
+      height: 140px;
+      min-height: 140px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow:
+        0 0 30px rgba(245, 158, 11, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .coa-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+    }
+
+    .coa-panel .panel-title .accent {
+      color: var(--amber);
+      text-shadow: 0 0 8px var(--amber-dim);
+    }
+
+    .coa-body {
+      flex: 1;
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      overflow-x: auto;
+    }
+
+    .coa-block {
+      flex: 1;
+      min-width: 280px;
+      background: rgba(10, 14, 20, 0.8);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .coa-block:hover {
+      border-color: rgba(245, 158, 11, 0.5);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.08);
+    }
+
+    /* Animated corner accents on COA blocks */
+    .coa-block::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      border-top: 2px solid var(--amber);
+      border-left: 2px solid var(--amber);
+      opacity: 0.6;
+    }
+
+    .coa-block::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      border-bottom: 2px solid var(--amber);
+      border-right: 2px solid var(--amber);
+      opacity: 0.6;
+    }
+
+    .coa-info {
+      flex: 1;
+    }
+
+    .coa-option-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--amber);
+      text-shadow: 0 0 6px var(--amber-dim);
+      margin-bottom: 6px;
+    }
+
+    .coa-description {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      line-height: 1.5;
+    }
+
+    .coa-description .coa-highlight {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .coa-success {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--green);
+      text-shadow: 0 0 4px var(--green-glow);
+      margin-top: 4px;
+      letter-spacing: 1px;
+    }
+
+    .coa-execute-btn {
+      padding: 10px 22px;
+      background: var(--amber);
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .coa-execute-btn:hover {
+      background: #fbbf24;
+      box-shadow: 0 0 28px rgba(245, 158, 11, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .coa-execute-btn:active {
+      transform: translateY(0);
+    }
+
+    /* Glint sweep on button */
+    .coa-execute-btn::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: btn-glint 3s ease-in-out infinite;
+    }
+
+    @keyframes btn-glint {
+
+      0%,
+      80%,
+      100% {
+        left: -100%;
+      }
+
+      40% {
+        left: 120%;
+      }
+    }
+
+    /* Scanline overlay for threat map */
+    .threat-scanline {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.08) 2px,
+          rgba(0, 0, 0, 0.08) 4px);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       TIMELINE VIEW
+       ══════════════════════════════════════════════════════════════ */
+    #timeline-view {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    .timeline-top-row {
+      flex: 1;
+      display: flex;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    /* ── DVR Replay Panel ── */
+    .dvr-panel {
+      flex: 1.6;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      box-shadow:
+        0 0 30px rgba(0, 229, 255, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .dvr-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .dvr-panel .panel-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .dvr-panel .panel-title .accent {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .dvr-video-container {
+      flex: 1;
+      position: relative;
+      background: #060910;
+      overflow: hidden;
+    }
+
+    /* DVR placeholder */
+    .dvr-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dvr-placeholder svg {
+      width: 56px;
+      height: 56px;
+      color: var(--text-dim);
+      opacity: 0.3;
+    }
+
+    .dvr-placeholder span {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+
+    /* DVR scanlines */
+    .dvr-scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.06) 2px,
+          rgba(0, 0, 0, 0.06) 4px);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* HISTORICAL DATA badge */
+    .dvr-badge {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--amber);
+      text-shadow: 0 0 6px var(--amber-dim);
+      z-index: 3;
+    }
+
+    .dvr-badge .badge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: threat-blink 1.2s ease-in-out infinite;
+    }
+
+    /* DVR timestamp overlay */
+    .dvr-timestamp {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+      letter-spacing: 2px;
+      z-index: 3;
+    }
+
+    .dvr-timestamp .ts-date {
+      font-size: 8px;
+      color: var(--text-muted);
+      text-shadow: none;
+      display: block;
+      text-align: right;
+      margin-top: 2px;
+      letter-spacing: 1px;
+    }
+
+    /* DVR Controls Bar */
+    .dvr-controls {
+      height: 40px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border-top: 1px solid var(--border-light);
+    }
+
+    .dvr-btn {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.6);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .dvr-btn:hover {
+      background: rgba(0, 229, 255, 0.1);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
+    }
+
+    .dvr-btn.active {
+      background: rgba(0, 229, 255, 0.15);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .dvr-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .dvr-speed-btn {
+      padding: 0 8px;
+      height: 28px;
+      border: 1px solid var(--border);
+      background: rgba(17, 24, 39, 0.6);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+    }
+
+    .dvr-speed-btn:hover,
+    .dvr-speed-btn.active {
+      background: rgba(0, 229, 255, 0.1);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .dvr-progress {
+      flex: 1;
+      height: 4px;
+      background: rgba(55, 65, 81, 0.4);
+      border-radius: 2px;
+      margin: 0 10px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .dvr-progress-fill {
+      height: 100%;
+      width: 35%;
+      background: linear-gradient(90deg, var(--cyan), rgba(0, 229, 255, 0.6));
+      border-radius: 2px;
+      position: relative;
+      box-shadow: 0 0 6px var(--cyan-glow);
+    }
+
+    .dvr-progress-fill::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 10px;
+      height: 10px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .dvr-time-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    /* ── Chronological Log Panel ── */
+    .chrono-panel {
+      flex: 1;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow:
+        0 0 30px rgba(0, 229, 255, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .chrono-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .chrono-panel .panel-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .chrono-panel .panel-title .accent {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .chrono-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 0;
+    }
+
+    /* Event row */
+    .chrono-event {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.15);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .chrono-event:hover {
+      background: rgba(0, 229, 255, 0.04);
+    }
+
+    .chrono-event.anomaly {
+      border-left: 3px solid var(--red);
+    }
+
+    .chrono-event.anomaly:hover {
+      background: rgba(255, 61, 0, 0.06);
+    }
+
+    .chrono-event.warning {
+      border-left: 3px solid var(--amber);
+    }
+
+    .chrono-event.warning:hover {
+      background: rgba(245, 158, 11, 0.06);
+    }
+
+    .chrono-event-time {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      min-width: 62px;
+      padding-top: 1px;
+    }
+
+    .chrono-event-dot {
+      width: 8px;
+      height: 8px;
+      min-width: 8px;
+      border-radius: 50%;
+      margin-top: 3px;
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan-glow);
+    }
+
+    .chrono-event.anomaly .chrono-event-dot {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red-glow);
+      animation: threat-blink 1.2s ease-in-out infinite;
+    }
+
+    .chrono-event.warning .chrono-event-dot {
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber-dim);
+    }
+
+    .chrono-event-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .chrono-event-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: 0.8px;
+      line-height: 1.4;
+    }
+
+    .chrono-event.anomaly .chrono-event-title {
+      color: var(--red);
+      text-shadow: 0 0 4px var(--red-glow);
+    }
+
+    .chrono-event.warning .chrono-event-title {
+      color: var(--amber);
+    }
+
+    .chrono-event-detail {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+
+    .chrono-event-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-family: var(--font-mono);
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .chrono-event-tag.tag-normal {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 229, 255, 0.2);
+    }
+
+    .chrono-event-tag.tag-anomaly {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(255, 61, 0, 0.3);
+    }
+
+    .chrono-event-tag.tag-warning {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* Jump-to arrow on hover */
+    .chrono-event::after {
+      content: '▸';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: var(--cyan);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .chrono-event:hover::after {
+      opacity: 1;
+    }
+
+    .chrono-event.anomaly::after {
+      color: var(--red);
+    }
+
+    /* ── Mission Timeline Graph Panel ── */
+    .timeline-graph-panel {
+      height: 160px;
+      min-height: 160px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow:
+        0 0 30px rgba(0, 229, 255, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    .timeline-graph-panel .panel-header {
+      height: 36px;
+      min-height: 36px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .timeline-graph-panel .panel-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .timeline-graph-panel .panel-title .accent {
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+
+    .timeline-canvas-wrap {
+      flex: 1;
+      position: relative;
+      background: #060910;
+      overflow: hidden;
+    }
+
+    .timeline-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Anomaly marker on timeline */
+    .tl-anomaly-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red), 0 0 16px var(--red-glow);
+      z-index: 3;
+    }
+
+    .tl-anomaly-marker::before {
+      content: '';
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      background: var(--red);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--red);
+      animation: threat-blink 1.2s ease-in-out infinite;
+    }
+
+    .tl-anomaly-marker .tl-marker-label {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 7px;
+      font-weight: 700;
+      color: var(--red);
+      text-shadow: 0 0 6px var(--red-glow);
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+
+    /* Timeline time labels */
+    .tl-time-labels {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: rgba(0, 0, 0, 0.5);
+      border-top: 1px solid var(--border-light);
+    }
+
+    .tl-time-labels span {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+
+    /* Playhead indicator */
+    .tl-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 20px;
+      width: 2px;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-glow);
+      z-index: 5;
+      left: 35%;
+      transition: left 0.1s linear;
+    }
+
+    .tl-playhead::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--cyan);
+      filter: drop-shadow(0 0 4px var(--cyan-glow));
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MAP VIEW
+       ══════════════════════════════════════════════════════════════ */
+    #map-view {
+      display: none;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Background Map / Grid ── */
+    .map-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0a1118 0%, #04070a 100%);
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    /* Mock 3D Grid */
+    .map-grid-layer {
+      position: absolute;
+      inset: -50%;
+      background:
+        linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px);
+      background-size: 50px 50px;
+      transform: perspective(600px) rotateX(60deg) scale(1.5);
+      transform-origin: center center;
+      animation: grid-move 20s linear infinite;
+    }
+
+    @keyframes grid-move {
+      0% {
+        transform: perspective(600px) rotateX(60deg) scale(1.5) translateY(0);
+      }
+
+      100% {
+        transform: perspective(600px) rotateX(60deg) scale(1.5) translateY(50px);
+      }
+    }
+
+    /* Glowing Flight Path */
+    .flight-path {
+      position: absolute;
+      top: 40%;
+      left: 30%;
+      width: 400px;
+      height: 200px;
+      border-top: 2px solid var(--cyan);
+      border-right: 2px solid var(--cyan);
+      border-top-right-radius: 40px;
+      transform: perspective(600px) rotateX(60deg) scale(1.5) rotate(-15deg);
+      box-shadow: inset -4px 4px 15px rgba(0, 229, 255, 0.2);
+      filter: drop-shadow(0 0 8px var(--cyan-glow));
+      z-index: 2;
+    }
+
+    .flight-path::after {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--cyan);
+      border-radius: 50%;
+      top: -6px;
+      left: 0;
+      box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-glow);
+    }
+
+    .flight-path::before {
+      content: '';
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--cyan);
+      border-radius: 50%;
+      bottom: 0;
+      right: -6px;
+      box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-glow);
+    }
+
+    /* Map Overlay Panels */
+    .map-overlay {
+      position: absolute;
+      z-index: 10;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .map-overlay .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.3);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .map-overlay .panel-header .accent {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    /* ── Flight Planner Panel (Right) ── */
+    .flight-planner-panel {
+      top: 20px;
+      right: 20px;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .waypoint-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .waypoint-item {
+      background: rgba(10, 14, 20, 0.6);
+      border: 1px solid rgba(0, 229, 255, 0.15);
+      border-left: 3px solid var(--cyan);
+      border-radius: 4px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .waypoint-item:hover {
+      border-color: rgba(0, 229, 255, 0.4);
+      background: rgba(15, 20, 30, 0.8);
+    }
+
+    .wp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wp-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .wp-alt {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--cyan);
+      background: rgba(0, 229, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+
+    .wp-coords {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .planner-actions {
+      padding: 12px;
+      border-top: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-execute-flight {
+      width: 100%;
+      padding: 10px;
+      background: var(--amber);
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+    }
+
+    .btn-execute-flight:hover {
+      background: #fbbf24;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-execute-flight:active {
+      transform: translateY(0);
+    }
+
+    /* ── Geospatial Data Panel (Bottom Left) ── */
+    .geo-data-panel {
+      bottom: 20px;
+      left: 20px;
+      width: 320px;
+    }
+
+    .geo-data-grid {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .geo-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .geo-label {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .geo-value {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .geo-value.good {
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+
+    .geo-value.warn {
+      color: var(--amber);
+    }
+
+    /* ── Map Controls (Bottom Right) ── */
+    .map-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .map-ctrl-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    .map-ctrl-btn:hover {
+      background: rgba(0, 229, 255, 0.1);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+    }
+
+    .map-ctrl-btn svg {
+      width: 16px;
+      height: 16px;
+    }
   </style>
 </head>
 
@@ -1615,7 +3351,7 @@
     <div class="main-body">
       <!-- Left Icon Toolbar -->
       <div class="icon-toolbar">
-        <button class="toolbar-btn active" title="Dashboard">
+        <button class="toolbar-btn active" id="btn-tactical" title="Dashboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7" />
@@ -1624,7 +3360,7 @@
             <rect x="14" y="14" width="7" height="7" />
           </svg>
         </button>
-        <button class="toolbar-btn" title="Swarm">
+        <button class="toolbar-btn" id="btn-swarm" title="Swarm">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -1633,7 +3369,7 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
         </button>
-        <button class="toolbar-btn" title="Alerts">
+        <button class="toolbar-btn" id="btn-alerts" title="Alerts">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -1641,7 +3377,7 @@
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </button>
-        <button class="toolbar-btn" title="Timeline">
+        <button class="toolbar-btn" id="btn-timeline" title="Timeline">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -1649,7 +3385,7 @@
           </svg>
         </button>
         <div class="toolbar-divider"></div>
-        <button class="toolbar-btn" title="Map">
+        <button class="toolbar-btn" id="btn-map" title="Map">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
@@ -1679,18 +3415,339 @@
 
       <!-- Content Area -->
       <div class="content-area">
-        <!-- ── Top Row ── -->
-        <div class="top-row">
-          <!-- LIVE VIDEO FEED -->
-          <div class="panel video-panel scanline">
+        <!-- ══ TACTICAL VIEW (default) ══ -->
+        <div id="tactical-view">
+          <!-- ── Top Row ── -->
+          <div class="top-row">
+            <!-- LIVE VIDEO FEED -->
+            <div class="panel video-panel scanline">
+              <div class="panel-header">
+                <div class="panel-title">Live <span class="accent">Tactical</span> Video Feed</div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Toggle Detections" onclick="toggleDetections()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="1" y="5" width="22" height="14" rx="2" />
+                      <path d="M12 9v6" />
+                      <path d="M9 12h6" />
+                    </svg>
+                  </button>
+                  <button class="panel-action-btn" title="Fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="15 3 21 3 21 9" />
+                      <polyline points="9 21 3 21 3 15" />
+                      <line x1="21" y1="3" x2="14" y2="10" />
+                      <line x1="3" y1="21" x2="10" y2="14" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="video-container" id="video-container">
+                  <!-- Placeholder (shown when no feed) -->
+                  <div class="video-placeholder" id="video-placeholder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <polygon points="23 7 16 12 23 17 23 7" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                    <span>Awaiting live feed…</span>
+                  </div>
+                  <!-- Live video image -->
+                  <img id="live-video-img" alt="Live feed">
+                  <!-- YOLO Detection overlay -->
+                  <div class="detection-overlay" id="detection-overlay"></div>
+                  <!-- HUD overlay -->
+                  <div class="video-hud">
+                    <div class="hud-top-bar">
+                      <div class="hud-badge" id="hud-zoom">ZOOM: 1.0X</div>
+                      <div style="display:flex;gap:6px;">
+                        <div class="hud-badge" id="hud-alt">ALT: --</div>
+                        <div class="hud-badge" id="hud-gps">GPS: --</div>
+                        <div class="hud-badge" id="hud-bat">BAT: --%</div>
+                      </div>
+                    </div>
+                    <div class="hud-bottom-bar">
+                      <div class="hud-badge" id="hud-zoom-bottom">ZOOM: 3.2X</div>
+                      <div style="display:flex;gap:6px;">
+                        <div class="hud-badge" id="hud-alt-bottom">ALT: 110M</div>
+                        <div class="hud-badge" id="hud-gps-bottom">GPS: --</div>
+                        <div class="hud-badge" id="hud-bat-bottom">BAT: --%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3D POINT CLOUD MAP -->
+            <div class="panel map-panel">
+              <div class="panel-header">
+                <div class="panel-title">3D <span class="accent">Point Cloud</span> Map</div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Reset Camera" onclick="resetCamera()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="1 4 1 10 7 10" />
+                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                    </svg>
+                  </button>
+                  <button class="panel-action-btn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="map-container" id="map-container">
+                  <canvas id="three-canvas"></canvas>
+                  <!-- Map Tools -->
+                  <div class="map-tools">
+                    <button class="map-tool-btn" title="Zoom In" onclick="zoomIn()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="11" y1="8" x2="11" y2="14" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                      </svg>
+                    </button>
+                    <button class="map-tool-btn" title="Zoom Out" onclick="zoomOut()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                      </svg>
+                    </button>
+                    <button class="map-tool-btn" title="Toggle Grid" onclick="toggleGrid()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <line x1="3" y1="9" x2="21" y2="9" />
+                        <line x1="3" y1="15" x2="21" y2="15" />
+                        <line x1="9" y1="3" x2="9" y2="21" />
+                        <line x1="15" y1="3" x2="15" y2="21" />
+                      </svg>
+                    </button>
+                    <button class="map-tool-btn" title="Drone View" onclick="toggleDroneView()">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                        <path d="M2 17l10 5 10-5" />
+                        <path d="M2 12l10 5 10-5" />
+                      </svg>
+                    </button>
+                  </div>
+                  <!-- Layers Panel -->
+                  <div class="layers-panel">
+                    <div class="layers-title">Layers</div>
+                    <div class="layer-item" onclick="toggleLayer('drones')">
+                      <div class="dot" style="background:var(--cyan)"></div>
+                      DRONE
+                      <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg></span>
+                    </div>
+                    <div class="layer-item" onclick="toggleLayer('assets')">
+                      <div class="dot" style="background:var(--green)"></div>
+                      ASSETS
+                      <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg></span>
+                    </div>
+                    <div class="layer-item" onclick="toggleLayer('alerts')">
+                      <div class="dot" style="background:var(--amber)"></div>
+                      ALERTS
+                      <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg></span>
+                    </div>
+                    <div class="layer-item" onclick="toggleLayer('mission')">
+                      <div class="dot" style="background:var(--red)"></div>
+                      MISSION CONTROLS
+                      <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="2">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg></span>
+                    </div>
+                    <div class="mission-controls">
+                      <button class="mission-btn" onclick="scanArea()">Scan Area</button>
+                      <button class="mission-btn" onclick="deployAll()">Deploy All</button>
+                    </div>
+                  </div>
+                  <!-- Swarm Insights -->
+                  <div class="swarm-insights">
+                    <div class="insight-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        style="width:12px;height:12px;color:var(--cyan)">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 16v-4" />
+                        <path d="M12 8h.01" />
+                      </svg>
+                      Swarm Insights
+                    </div>
+                    <div class="insight-row">
+                      <span class="insight-label">Mission Progress</span>
+                      <span class="insight-value text-cyan" id="insight-progress">--</span>
+                    </div>
+                    <div class="insight-row">
+                      <span class="insight-label">Data</span>
+                      <span class="insight-value text-green" id="insight-data">100%</span>
+                    </div>
+                  </div>
+                  <!-- Altitude Widget -->
+                  <div class="altitude-widget">
+                    <div class="alt-label">Altitude</div>
+                    <div class="alt-graph" id="alt-graph-container">
+                      <canvas id="alt-graph-canvas"></canvas>
+                    </div>
+                    <div class="alt-label" id="alt-range-label">20 min</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT SIDEBAR — Drone Cards -->
+            <div class="cards-sidebar">
+              <div class="cards-header">
+                <div class="cards-title">Drone Status</div>
+                <div class="cards-count" id="drone-count">0</div>
+              </div>
+              <div class="cards-body" id="drone-cards-container">
+                <!-- Drone cards dynamically inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Bottom Row ── -->
+          <div class="bottom-row">
+            <!-- DRONE STATUS PANEL -->
+            <div class="panel status-panel">
+              <div class="panel-header">
+                <div class="panel-title">Drone <span class="accent">Status</span></div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Grid View">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="status-body" id="primary-drone-status">
+                  <div class="status-drone-icon">
+                    <div class="drone-silhouette">
+                      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="32" cy="32" r="6" fill="currentColor" opacity="0.3" />
+                        <line x1="32" y1="26" x2="32" y2="12" />
+                        <line x1="32" y1="38" x2="32" y2="52" />
+                        <line x1="26" y1="32" x2="12" y2="32" />
+                        <line x1="38" y1="32" x2="52" y2="32" />
+                        <circle cx="12" cy="12" r="5" />
+                        <circle cx="52" cy="12" r="5" />
+                        <circle cx="12" cy="52" r="5" />
+                        <circle cx="52" cy="52" r="5" />
+                        <line x1="32" y1="12" x2="12" y2="12" />
+                        <line x1="32" y1="12" x2="52" y2="12" />
+                        <line x1="32" y1="52" x2="12" y2="52" />
+                        <line x1="32" y1="52" x2="52" y2="52" />
+                      </svg>
+                    </div>
+                    <div class="drone-info-grid">
+                      <span class="drone-info-label">STATUS</span>
+                      <span class="drone-info-value green" id="ds-status">SCANNING</span>
+                      <span class="drone-info-label">SIGNAL</span>
+                      <span class="drone-info-value" id="ds-signal">93%</span>
+                      <span class="drone-info-label">LOCK</span>
+                      <span class="drone-info-value" id="ds-lock">0.0A</span>
+                      <span class="drone-info-label">HEIGHT</span>
+                      <span class="drone-info-value" id="ds-height">0.0m</span>
+                    </div>
+                  </div>
+                  <!-- Telemetry Section -->
+                  <div>
+                    <div class="telem-section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                      </svg>
+                      Telemetry
+                    </div>
+                    <div class="telem-grid">
+                      <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-zoom">110M</span>
+                      <span class="telem-key">GPS</span><span class="telem-val" id="ds-gps">--</span>
+                      <span class="telem-key">BAT</span><span class="telem-val" id="ds-bat">--%</span>
+                    </div>
+                  </div>
+                  <!-- Navigation Section -->
+                  <div>
+                    <div class="telem-section-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                      </svg>
+                      Navigation
+                    </div>
+                    <div class="telem-grid">
+                      <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-nav-zoom">3.2X</span>
+                      <span class="telem-key">ALT</span><span class="telem-val" id="ds-nav-alt">--</span>
+                      <span class="telem-key">BAT</span><span class="telem-val" id="ds-nav-bat">--%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DETECTION LOG -->
+            <div class="panel log-panel">
+              <div class="panel-header">
+                <div class="panel-title">Detection <span class="accent">Log</span></div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Clear Log" onclick="clearDetectionLog()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                  </button>
+                  <button class="panel-action-btn" title="Auto-scroll" id="autoscroll-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <polyline points="19 12 12 19 5 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="log-body" id="detection-log">
+                  <!-- Log entries dynamically inserted -->
+                </div>
+              </div>
+              <div class="timeline-controls">
+                <span class="timeline-label">Timeline</span>
+                <div class="timeline-scrubber">
+                  <div class="timeline-progress"></div>
+                </div>
+                <span class="timeline-time" id="timeline-elapsed">00:00</span>
+              </div>
+            </div>
+          </div>
+        </div><!-- /tactical-view -->
+
+        <!-- ══ SWARM VIEW ══ -->
+        <div id="swarm-view">
+          <div class="swarm-topology-panel">
             <div class="panel-header">
-              <div class="panel-title">Live <span class="accent">Tactical</span> Video Feed</div>
+              <div class="panel-title">SWARM TOPOLOGY MESH</div>
+              <div class="network-health-badge degraded">
+                <div class="health-dot"></div>
+                NETWORK HEALTH: DEGRADED
+              </div>
+              <div style="flex:1"></div>
               <div class="panel-actions">
-                <button class="panel-action-btn" title="Toggle Detections" onclick="toggleDetections()">
+                <button class="panel-action-btn" title="Reset View" onclick="resetTopologyView()">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="1" y="5" width="22" height="14" rx="2" />
-                    <path d="M12 9v6" />
-                    <path d="M9 12h6" />
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                   </svg>
                 </button>
                 <button class="panel-action-btn" title="Fullscreen">
@@ -1703,68 +3760,46 @@
                 </button>
               </div>
             </div>
-            <div class="panel-body">
-              <div class="video-container" id="video-container">
-                <!-- Placeholder (shown when no feed) -->
-                <div class="video-placeholder" id="video-placeholder">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                  <span>Awaiting live feed…</span>
-                </div>
-                <!-- Live video image -->
-                <img id="live-video-img" alt="Live feed">
-                <!-- YOLO Detection overlay -->
-                <div class="detection-overlay" id="detection-overlay"></div>
-                <!-- HUD overlay -->
-                <div class="video-hud">
-                  <div class="hud-top-bar">
-                    <div class="hud-badge" id="hud-zoom">ZOOM: 1.0X</div>
-                    <div style="display:flex;gap:6px;">
-                      <div class="hud-badge" id="hud-alt">ALT: --</div>
-                      <div class="hud-badge" id="hud-gps">GPS: --</div>
-                      <div class="hud-badge" id="hud-bat">BAT: --%</div>
-                    </div>
-                  </div>
-                  <div class="hud-bottom-bar">
-                    <div class="hud-badge" id="hud-zoom-bottom">ZOOM: 3.2X</div>
-                    <div style="display:flex;gap:6px;">
-                      <div class="hud-badge" id="hud-alt-bottom">ALT: 110M</div>
-                      <div class="hud-badge" id="hud-gps-bottom">GPS: --</div>
-                      <div class="hud-badge" id="hud-bat-bottom">BAT: --%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div class="topology-canvas-wrap">
+              <canvas id="topology-canvas"></canvas>
             </div>
           </div>
-
-          <!-- 3D POINT CLOUD MAP -->
-          <div class="panel map-panel">
+          <div class="swarm-stats-sidebar">
             <div class="panel-header">
-              <div class="panel-title">3D <span class="accent">Point Cloud</span> Map</div>
-              <div class="panel-actions">
-                <button class="panel-action-btn" title="Reset Camera" onclick="resetCamera()">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="1 4 1 10 7 10" />
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                  </svg>
-                </button>
-                <button class="panel-action-btn" title="Close">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
+              <div class="panel-title">Mesh <span class="accent">Status</span></div>
             </div>
-            <div class="panel-body">
-              <div class="map-container" id="map-container">
-                <canvas id="three-canvas"></canvas>
-                <!-- Map Tools -->
-                <div class="map-tools">
-                  <button class="map-tool-btn" title="Zoom In" onclick="zoomIn()">
+            <div class="swarm-stat-item">
+              <div class="swarm-stat-label">Active Nodes</div>
+              <div class="swarm-stat-value cyan" id="sw-active-nodes">8</div>
+            </div>
+            <div class="swarm-stat-item">
+              <div class="swarm-stat-label">Mesh Links</div>
+              <div class="swarm-stat-value green" id="sw-mesh-links">14</div>
+            </div>
+            <div class="swarm-stat-item">
+              <div class="swarm-stat-label">Packet Loss</div>
+              <div class="swarm-stat-value red" id="sw-packet-loss">4.2%</div>
+            </div>
+            <div class="swarm-stat-item">
+              <div class="swarm-stat-label">Avg Latency</div>
+              <div class="swarm-stat-value amber" id="sw-avg-latency">18ms</div>
+            </div>
+            <div class="swarm-node-list" id="swarm-node-list">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ ALERTS VIEW ══ -->
+        <div id="alerts-view" style="display: none; flex: 1; gap: var(--gap);">
+          <!-- Top: Main Grid (Threat Map + Incidents) -->
+          <div class="alerts-main-grid">
+            <!-- LEFT — Threat Geolocation -->
+            <div class="threat-geo-panel">
+              <div class="panel-header">
+                <div class="panel-title">ACTIVE THREAT <span class="accent">GEOLOCATION</span></div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Zoom In">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="11" cy="11" r="8" />
                       <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -1772,224 +3807,475 @@
                       <line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
                   </button>
-                  <button class="map-tool-btn" title="Zoom Out" onclick="zoomOut()">
+                  <button class="panel-action-btn" title="Fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <line x1="8" y1="11" x2="14" y2="11" />
-                    </svg>
-                  </button>
-                  <button class="map-tool-btn" title="Toggle Grid" onclick="toggleGrid()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <line x1="3" y1="9" x2="21" y2="9" />
-                      <line x1="3" y1="15" x2="21" y2="15" />
-                      <line x1="9" y1="3" x2="9" y2="21" />
-                      <line x1="15" y1="3" x2="15" y2="21" />
-                    </svg>
-                  </button>
-                  <button class="map-tool-btn" title="Drone View" onclick="toggleDroneView()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                      <path d="M2 17l10 5 10-5" />
-                      <path d="M2 12l10 5 10-5" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <polyline points="9 21 3 21 3 15" />
+                      <line x1="21" y1="3" x2="14" y2="10" />
+                      <line x1="3" y1="21" x2="10" y2="14" />
                     </svg>
                   </button>
                 </div>
-                <!-- Layers Panel -->
-                <div class="layers-panel">
-                  <div class="layers-title">Layers</div>
-                  <div class="layer-item" onclick="toggleLayer('drones')">
-                    <div class="dot" style="background:var(--cyan)"></div>
-                    DRONE
-                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg></span>
-                  </div>
-                  <div class="layer-item" onclick="toggleLayer('assets')">
-                    <div class="dot" style="background:var(--green)"></div>
-                    ASSETS
-                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg></span>
-                  </div>
-                  <div class="layer-item" onclick="toggleLayer('alerts')">
-                    <div class="dot" style="background:var(--amber)"></div>
-                    ALERTS
-                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg></span>
-                  </div>
-                  <div class="layer-item" onclick="toggleLayer('mission')">
-                    <div class="dot" style="background:var(--red)"></div>
-                    MISSION CONTROLS
-                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2">
-                        <polyline points="6 9 12 15 18 9" />
-                      </svg></span>
-                  </div>
-                  <div class="mission-controls">
-                    <button class="mission-btn" onclick="scanArea()">Scan Area</button>
-                    <button class="mission-btn" onclick="deployAll()">Deploy All</button>
-                  </div>
+              </div>
+              <div class="threat-map-container">
+                <div class="threat-grid-canvas"></div>
+                <div class="threat-crosshair"></div>
+                <div class="threat-scanline"></div>
+
+                <!-- Simulated threat markers -->
+                <div class="threat-marker" style="top: 30%; left: 25%;">
+                  <span class="threat-marker-label">TGT-882</span>
                 </div>
-                <!-- Swarm Insights -->
-                <div class="swarm-insights">
-                  <div class="insight-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                      style="width:12px;height:12px;color:var(--cyan)">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 16v-4" />
-                      <path d="M12 8h.01" />
+                <div class="threat-marker" style="top: 55%; left: 68%;">
+                  <span class="threat-marker-label">TGT-917</span>
+                </div>
+                <div class="threat-marker amber" style="top: 72%; left: 40%;">
+                  <span class="threat-marker-label">TGT-903</span>
+                </div>
+                <div class="threat-marker" style="top: 20%; left: 78%;">
+                  <span class="threat-marker-label">TGT-945</span>
+                </div>
+                <div class="threat-marker amber" style="top: 45%; left: 15%;">
+                  <span class="threat-marker-label">TGT-871</span>
+                </div>
+
+                <!-- HUD Overlay -->
+                <div class="threat-map-hud">
+                  GRID REF: <span class="hud-val">34T KM 0581 4825</span><br>
+                  SCAN MODE: <span class="hud-warn">ACTIVE TRACKING</span><br>
+                  THREATS: <span class="hud-warn">5 CONTACTS</span> / RADIUS: <span class="hud-val">2.4 KM</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT — Critical Incidents Feed -->
+            <div class="incidents-panel">
+              <div class="panel-header">
+                <div class="panel-title">CRITICAL <span class="accent">INCIDENTS</span></div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Filter">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                     </svg>
-                    Swarm Insights
-                  </div>
-                  <div class="insight-row">
-                    <span class="insight-label">Mission Progress</span>
-                    <span class="insight-value text-cyan" id="insight-progress">--</span>
-                  </div>
-                  <div class="insight-row">
-                    <span class="insight-label">Data</span>
-                    <span class="insight-value text-green" id="insight-data">100%</span>
-                  </div>
+                  </button>
                 </div>
-                <!-- Altitude Widget -->
-                <div class="altitude-widget">
-                  <div class="alt-label">Altitude</div>
-                  <div class="alt-graph" id="alt-graph-container">
-                    <canvas id="alt-graph-canvas"></canvas>
+              </div>
+              <div class="incidents-feed">
+                <!-- Incident 1 -->
+                <div class="incident-card">
+                  <div class="incident-card-header">
+                    <div class="incident-severity critical"><span class="sev-dot"></span>CRITICAL</div>
+                    <div class="incident-threat-id">TGT-882</div>
+                    <div class="incident-timestamp">14:32:07 UTC</div>
                   </div>
-                  <div class="alt-label" id="alt-range-label">20 min</div>
+                  <div class="incident-description">
+                    UNAUTHORIZED PERSON DETECTED — Perimeter Zone Alpha. Subject moving NNW at 1.2 m/s. Thermal
+                    signature confirmed.
+                  </div>
+                  <div class="incident-meta">
+                    <div class="incident-meta-item">CONFIDENCE: <span class="meta-val high">97.3%</span></div>
+                    <div class="incident-meta-item">SOURCE: <span class="meta-val">TIDDA-01 / IR</span></div>
+                    <div class="incident-meta-item">CLASS: <span class="meta-val high">HOSTILE</span></div>
+                  </div>
+                  <div class="incident-coord">COORDS: <span class="coord-val">28.6139°N, 77.2090°E</span> — ALT: <span
+                      class="coord-val">42m AGL</span></div>
+                </div>
+
+                <!-- Incident 2 -->
+                <div class="incident-card">
+                  <div class="incident-card-header">
+                    <div class="incident-severity critical"><span class="sev-dot"></span>CRITICAL</div>
+                    <div class="incident-threat-id">TGT-917</div>
+                    <div class="incident-timestamp">14:28:41 UTC</div>
+                  </div>
+                  <div class="incident-description">
+                    UNIDENTIFIED VEHICLE — Stationary near supply corridor. RF emission detected. Possible IED
+                    emplacement.
+                  </div>
+                  <div class="incident-meta">
+                    <div class="incident-meta-item">CONFIDENCE: <span class="meta-val high">91.8%</span></div>
+                    <div class="incident-meta-item">SOURCE: <span class="meta-val">TIDDA-03 / EO+SAR</span></div>
+                    <div class="incident-meta-item">CLASS: <span class="meta-val high">UNKNOWN-HOSTILE</span></div>
+                  </div>
+                  <div class="incident-coord">COORDS: <span class="coord-val">28.6245°N, 77.1985°E</span> — ALT: <span
+                      class="coord-val">0m GND</span></div>
+                </div>
+
+                <!-- Incident 3 -->
+                <div class="incident-card amber">
+                  <div class="incident-card-header">
+                    <div class="incident-severity warning"><span class="sev-dot"></span>WARNING</div>
+                    <div class="incident-threat-id">TGT-903</div>
+                    <div class="incident-timestamp">14:24:13 UTC</div>
+                  </div>
+                  <div class="incident-description">
+                    ANOMALOUS RF SIGNATURE — Low-power burst transmission intercepted. Pattern matches known C2
+                    protocol. Triangulating source.
+                  </div>
+                  <div class="incident-meta">
+                    <div class="incident-meta-item">CONFIDENCE: <span class="meta-val med">74.5%</span></div>
+                    <div class="incident-meta-item">SOURCE: <span class="meta-val">TIDDA-05 / SIGINT</span></div>
+                    <div class="incident-meta-item">CLASS: <span class="meta-val med">SUSPECT</span></div>
+                  </div>
+                  <div class="incident-coord">COORDS: <span class="coord-val">28.6080°N, 77.2142°E</span> — ALT: <span
+                      class="coord-val">N/A</span></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- RIGHT SIDEBAR — Drone Cards -->
-          <div class="cards-sidebar">
-            <div class="cards-header">
-              <div class="cards-title">Drone Status</div>
-              <div class="cards-count" id="drone-count">0</div>
+          <!-- Bottom: AI Courses of Action -->
+          <div class="coa-panel">
+            <div class="panel-header">
+              <div class="panel-title">AI COURSES OF <span class="accent">ACTION</span></div>
+              <div class="panel-actions">
+                <button class="panel-action-btn" title="Refresh Analysis">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div class="cards-body" id="drone-cards-container">
-              <!-- Drone cards dynamically inserted here -->
+            <div class="coa-body">
+              <!-- Option A -->
+              <div class="coa-block">
+                <div class="coa-info">
+                  <div class="coa-option-label">OPTION A</div>
+                  <div class="coa-description">
+                    Dispatch <span class="coa-highlight">TIDDA-02</span> for close-range visual inspection of TGT-882.
+                    Maintain standoff at 50m, activate EO/IR lock.
+                  </div>
+                  <div class="coa-success">▸ PREDICTED SUCCESS: 92%</div>
+                </div>
+                <button class="coa-execute-btn" onclick="executeCOA('A')">EXECUTE</button>
+              </div>
+
+              <!-- Option B -->
+              <div class="coa-block">
+                <div class="coa-info">
+                  <div class="coa-option-label">OPTION B</div>
+                  <div class="coa-description">
+                    Deploy <span class="coa-highlight">TIDDA-03 + TIDDA-05</span> in pincer formation. Establish
+                    perimeter lock on Sector 7. Enable autonomous tracking.
+                  </div>
+                  <div class="coa-success">▸ PREDICTED SUCCESS: 87%</div>
+                </div>
+                <button class="coa-execute-btn" onclick="executeCOA('B')">EXECUTE</button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Bottom Row ── -->
-        <div class="bottom-row">
-          <!-- DRONE STATUS PANEL -->
-          <div class="panel status-panel">
-            <div class="panel-header">
-              <div class="panel-title">Drone <span class="accent">Status</span></div>
-              <div class="panel-actions">
-                <button class="panel-action-btn" title="Grid View">
+        <!-- ══ TIMELINE VIEW ══ -->
+        <div id="timeline-view" style="display: none; flex: 1; flex-direction: column; gap: var(--gap);">
+          <!-- Top: DVR Player + Chrono Log -->
+          <div class="timeline-top-row">
+            <!-- LEFT — DVR Replay -->
+            <div class="dvr-panel">
+              <div class="panel-header">
+                <div class="panel-title">MISSION <span class="accent">REPLAY</span> (DVR)</div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Picture-in-Picture">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2" />
+                      <rect x="12" y="9" width="8" height="6" rx="1" />
+                    </svg>
+                  </button>
+                  <button class="panel-action-btn" title="Fullscreen">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="15 3 21 3 21 9" />
+                      <polyline points="9 21 3 21 3 15" />
+                      <line x1="21" y1="3" x2="14" y2="10" />
+                      <line x1="3" y1="21" x2="10" y2="14" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="dvr-video-container">
+                <div class="dvr-scanlines"></div>
+                <!-- Badge -->
+                <div class="dvr-badge"><span class="badge-dot"></span>HISTORICAL DATA</div>
+                <!-- Timestamp -->
+                <div class="dvr-timestamp">
+                  14:32:07
+                  <span class="ts-date">16 SEP 2026</span>
+                </div>
+                <!-- Video placeholder -->
+                <div class="dvr-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  <span>MISSION RECORDING — SECTOR 7 NORTH</span>
+                </div>
+              </div>
+              <!-- DVR Transport Controls -->
+              <div class="dvr-controls">
+                <button class="dvr-btn" title="Rewind">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
+                    <polygon points="11 19 2 12 11 5 11 19" />
+                    <polygon points="22 19 13 12 22 5 22 19" />
                   </svg>
                 </button>
+                <button class="dvr-btn active" title="Play">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                </button>
+                <button class="dvr-btn" title="Pause">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                </button>
+                <button class="dvr-btn" title="Fast Forward">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 19 22 12 13 5 13 19" />
+                    <polygon points="2 19 11 12 2 5 2 19" />
+                  </svg>
+                </button>
+                <div style="width: 1px; height: 16px; background: var(--border); margin: 0 4px;"></div>
+                <button class="dvr-speed-btn" title="1x Speed">1x</button>
+                <button class="dvr-speed-btn" title="2x Speed">2x</button>
+                <button class="dvr-speed-btn active" title="4x Speed">4x</button>
+                <button class="dvr-speed-btn" title="8x Speed">8x</button>
+                <div class="dvr-progress">
+                  <div class="dvr-progress-fill"></div>
+                </div>
+                <span class="dvr-time-label">12:47 / 35:22</span>
               </div>
             </div>
-            <div class="panel-body">
-              <div class="status-body" id="primary-drone-status">
-                <div class="status-drone-icon">
-                  <div class="drone-silhouette">
-                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <circle cx="32" cy="32" r="6" fill="currentColor" opacity="0.3" />
-                      <line x1="32" y1="26" x2="32" y2="12" />
-                      <line x1="32" y1="38" x2="32" y2="52" />
-                      <line x1="26" y1="32" x2="12" y2="32" />
-                      <line x1="38" y1="32" x2="52" y2="32" />
-                      <circle cx="12" cy="12" r="5" />
-                      <circle cx="52" cy="12" r="5" />
-                      <circle cx="12" cy="52" r="5" />
-                      <circle cx="52" cy="52" r="5" />
-                      <line x1="32" y1="12" x2="12" y2="12" />
-                      <line x1="32" y1="12" x2="52" y2="12" />
-                      <line x1="32" y1="52" x2="12" y2="52" />
-                      <line x1="32" y1="52" x2="52" y2="52" />
+
+            <!-- RIGHT — Chronological Log -->
+            <div class="chrono-panel">
+              <div class="panel-header">
+                <div class="panel-title">CHRONOLOGICAL <span class="accent">LOG</span></div>
+                <div class="panel-actions">
+                  <button class="panel-action-btn" title="Filter Events">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                     </svg>
-                  </div>
-                  <div class="drone-info-grid">
-                    <span class="drone-info-label">STATUS</span>
-                    <span class="drone-info-value green" id="ds-status">SCANNING</span>
-                    <span class="drone-info-label">SIGNAL</span>
-                    <span class="drone-info-value" id="ds-signal">93%</span>
-                    <span class="drone-info-label">LOCK</span>
-                    <span class="drone-info-value" id="ds-lock">0.0A</span>
-                    <span class="drone-info-label">HEIGHT</span>
-                    <span class="drone-info-value" id="ds-height">0.0m</span>
+                  </button>
+                </div>
+              </div>
+              <div class="chrono-feed">
+                <div class="chrono-event anomaly">
+                  <span class="chrono-event-time">14:32:07</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">PERSON DETECTED — ZONE ALPHA</div>
+                    <div class="chrono-event-detail">TIDDA-01 / IR sensor / Confidence: 97.3%</div>
+                    <span class="chrono-event-tag tag-anomaly">CRITICAL</span>
                   </div>
                 </div>
-                <!-- Telemetry Section -->
-                <div>
-                  <div class="telem-section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                    </svg>
-                    Telemetry
-                  </div>
-                  <div class="telem-grid">
-                    <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-zoom">110M</span>
-                    <span class="telem-key">GPS</span><span class="telem-val" id="ds-gps">--</span>
-                    <span class="telem-key">BAT</span><span class="telem-val" id="ds-bat">--%</span>
+                <div class="chrono-event anomaly">
+                  <span class="chrono-event-time">14:28:41</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">UNIDENTIFIED VEHICLE — SUPPLY CORRIDOR</div>
+                    <div class="chrono-event-detail">TIDDA-03 / EO+SAR / RF emission flagged</div>
+                    <span class="chrono-event-tag tag-anomaly">CRITICAL</span>
                   </div>
                 </div>
-                <!-- Navigation Section -->
-                <div>
-                  <div class="telem-section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polygon points="3 11 22 2 13 21 11 13 3 11" />
-                    </svg>
-                    Navigation
+                <div class="chrono-event warning">
+                  <span class="chrono-event-time">14:24:13</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">ANOMALOUS RF BURST INTERCEPTED</div>
+                    <div class="chrono-event-detail">TIDDA-05 / SIGINT / Pattern match: C2 protocol</div>
+                    <span class="chrono-event-tag tag-warning">WARNING</span>
                   </div>
-                  <div class="telem-grid">
-                    <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-nav-zoom">3.2X</span>
-                    <span class="telem-key">ALT</span><span class="telem-val" id="ds-nav-alt">--</span>
-                    <span class="telem-key">BAT</span><span class="telem-val" id="ds-nav-bat">--%</span>
+                </div>
+                <div class="chrono-event">
+                  <span class="chrono-event-time">14:18:55</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">WAYPOINT REACHED — WP-07</div>
+                    <div class="chrono-event-detail">TIDDA-02 / Navigation / On schedule</div>
+                    <span class="chrono-event-tag tag-normal">NAVIGATION</span>
+                  </div>
+                </div>
+                <div class="chrono-event">
+                  <span class="chrono-event-time">14:12:30</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">PERIMETER SCAN COMPLETE — SECTOR 7N</div>
+                    <div class="chrono-event-detail">TIDDA-01 / Auto-sweep / No anomalies</div>
+                    <span class="chrono-event-tag tag-normal">ROUTINE</span>
+                  </div>
+                </div>
+                <div class="chrono-event">
+                  <span class="chrono-event-time">14:05:18</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">SWARM FORMATION UPDATED</div>
+                    <div class="chrono-event-detail">GCS CMD / Mesh reconfiguration / 7 nodes active</div>
+                    <span class="chrono-event-tag tag-normal">SYSTEM</span>
+                  </div>
+                </div>
+                <div class="chrono-event warning">
+                  <span class="chrono-event-time">13:58:42</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">BATTERY LOW — TIDDA-04</div>
+                    <div class="chrono-event-detail">Telemetry / Battery at 18% / RTL recommended</div>
+                    <span class="chrono-event-tag tag-warning">WARNING</span>
+                  </div>
+                </div>
+                <div class="chrono-event">
+                  <span class="chrono-event-time">13:52:10</span>
+                  <div class="chrono-event-dot"></div>
+                  <div class="chrono-event-content">
+                    <div class="chrono-event-title">MISSION INITIATED — OP WATCHKEEPER</div>
+                    <div class="chrono-event-detail">GCS / Mission start / 8 drones deployed</div>
+                    <span class="chrono-event-tag tag-normal">SYSTEM</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- DETECTION LOG -->
-          <div class="panel log-panel">
+          <!-- Bottom: Mission Timeline Graph -->
+          <div class="timeline-graph-panel">
             <div class="panel-header">
-              <div class="panel-title">Detection <span class="accent">Log</span></div>
+              <div class="panel-title">MISSION TIMELINE <span class="accent">GRAPH</span></div>
               <div class="panel-actions">
-                <button class="panel-action-btn" title="Clear Log" onclick="clearDetectionLog()">
+                <button class="panel-action-btn" title="Zoom to Fit">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </button>
-                <button class="panel-action-btn" title="Auto-scroll" id="autoscroll-btn">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <polyline points="19 12 12 19 5 12" />
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="11" y1="8" x2="11" y2="14" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
                   </svg>
                 </button>
               </div>
             </div>
-            <div class="panel-body">
-              <div class="log-body" id="detection-log">
-                <!-- Log entries dynamically inserted -->
+            <div class="timeline-canvas-wrap">
+              <canvas id="timeline-graph-canvas"></canvas>
+              <!-- Anomaly markers -->
+              <div class="tl-anomaly-marker" style="left: 18%;">
+                <span class="tl-marker-label">RF BURST</span>
+              </div>
+              <div class="tl-anomaly-marker" style="left: 48%;">
+                <span class="tl-marker-label">VEHICLE</span>
+              </div>
+              <div class="tl-anomaly-marker" style="left: 72%;">
+                <span class="tl-marker-label">PERSON</span>
+              </div>
+              <div class="tl-anomaly-marker" style="left: 89%;">
+                <span class="tl-marker-label">RF SIG</span>
+              </div>
+              <!-- Playhead -->
+              <div class="tl-playhead" id="tl-playhead"></div>
+              <!-- Time labels -->
+              <div class="tl-time-labels">
+                <span>13:50</span>
+                <span>13:55</span>
+                <span>14:00</span>
+                <span>14:05</span>
+                <span>14:10</span>
+                <span>14:15</span>
+                <span>14:20</span>
+                <span>14:25</span>
+                <span>14:30</span>
+                <span>14:35</span>
               </div>
             </div>
-            <div class="timeline-controls">
-              <span class="timeline-label">Timeline</span>
-              <div class="timeline-scrubber">
-                <div class="timeline-progress"></div>
+          </div>
+        </div>
+
+        <!-- ══ MAP VIEW ══ -->
+        <div id="map-view" style="display: none; flex: 1; position: relative;">
+          <!-- Map Background -->
+          <div class="map-bg">
+            <div class="map-grid-layer"></div>
+            <div class="flight-path"></div>
+            <!-- Mock drone icon on map -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"
+              style="position: absolute; top: 40%; left: 30%; width: 24px; height: 24px; transform: translate(-50%, -50%); filter: drop-shadow(0 0 8px var(--cyan-glow));">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+            </svg>
+          </div>
+
+          <!-- Top/Right Flight Planner -->
+          <div class="map-overlay flight-planner-panel">
+            <div class="panel-header">FLIGHT <span class="accent">PLANNER</span></div>
+            <div class="waypoint-list">
+              <div class="waypoint-item">
+                <div class="wp-header">
+                  <span class="wp-id">WP-01 (START)</span>
+                  <span class="wp-alt">150m AGL</span>
+                </div>
+                <div class="wp-coords">LAT: 28.6139°N / LNG: 77.2090°E</div>
               </div>
-              <span class="timeline-time" id="timeline-elapsed">00:00</span>
+              <div class="waypoint-item">
+                <div class="wp-header">
+                  <span class="wp-id">WP-02 (LOITER)</span>
+                  <span class="wp-alt">200m AGL</span>
+                </div>
+                <div class="wp-coords">LAT: 28.6245°N / LNG: 77.1985°E</div>
+              </div>
+              <div class="waypoint-item">
+                <div class="wp-header">
+                  <span class="wp-id">WP-03 (TARGET)</span>
+                  <span class="wp-alt">120m AGL</span>
+                </div>
+                <div class="wp-coords">LAT: 28.6080°N / LNG: 77.2142°E</div>
+              </div>
+            </div>
+            <div class="planner-actions">
+              <button class="btn-execute-flight" onclick="executeFlightPlan()">EXECUTE FLIGHT PLAN</button>
+            </div>
+          </div>
+
+          <!-- Bottom/Left Geo Data -->
+          <div class="map-overlay geo-data-panel">
+            <div class="panel-header">ENVIRONMENT <span class="accent">DATA</span></div>
+            <div class="geo-data-grid">
+              <div class="geo-stat">
+                <span class="geo-label">GPS LOCK</span>
+                <span class="geo-value good">14 SATS - RTK FIX</span>
+              </div>
+              <div class="geo-stat">
+                <span class="geo-label">WIND SPD</span>
+                <span class="geo-value warn">12 KNOTS NW</span>
+              </div>
+              <div class="geo-stat">
+                <span class="geo-label">ELEVATION</span>
+                <span class="geo-value">42m MSL</span>
+              </div>
+              <div class="geo-stat">
+                <span class="geo-label">TERRAIN</span>
+                <span class="geo-value">URBAN HIGH-DENSITY</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Map Controls -->
+          <div class="map-controls">
+            <div class="map-ctrl-btn" title="Compass / North Up">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+              </svg>
+            </div>
+            <div class="map-ctrl-btn" title="Zoom In">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <div class="map-ctrl-btn" title="Zoom Out">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <div class="map-ctrl-btn" title="3D Tilt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path
+                  d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              </svg>
             </div>
           </div>
         </div>
@@ -3039,6 +5325,656 @@
       const el = document.getElementById('header-clock');
       if (el) el.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
     }, 1000);
+
+    /* ══════════════════════════════════════════════════════════════
+       TAB SWITCHING — TACTICAL / SWARM / ALERTS / TIMELINE / MAP VIEWS
+       ══════════════════════════════════════════════════════════════ */
+    (function initTabSwitching() {
+      const btnTactical = document.getElementById('btn-tactical');
+      const btnSwarm = document.getElementById('btn-swarm');
+      const btnAlerts = document.getElementById('btn-alerts');
+      const btnTimeline = document.getElementById('btn-timeline');
+      const btnMap = document.getElementById('btn-map');
+
+      const tacticalView = document.getElementById('tactical-view');
+      const swarmView = document.getElementById('swarm-view');
+      const alertsView = document.getElementById('alerts-view');
+      const timelineView = document.getElementById('timeline-view');
+      const mapView = document.getElementById('map-view');
+
+      const allBtns = [btnTactical, btnSwarm, btnAlerts, btnTimeline, btnMap];
+      const allViews = [tacticalView, swarmView, alertsView, timelineView, mapView];
+
+      function switchView(activeBtn, activeView) {
+        allBtns.forEach(b => b.classList.remove('active'));
+        allViews.forEach(v => { v.style.display = 'none'; });
+        activeBtn.classList.add('active');
+        activeView.style.display = 'flex';
+      }
+
+      btnTactical.addEventListener('click', () => switchView(btnTactical, tacticalView));
+
+      btnSwarm.addEventListener('click', () => {
+        switchView(btnSwarm, swarmView);
+        // Initialize topology canvas on first show
+        if (!topologyEngine.initialized) {
+          topologyEngine.init();
+        } else {
+          topologyEngine.resize();
+        }
+      });
+
+      btnAlerts.addEventListener('click', () => switchView(btnAlerts, alertsView));
+
+      btnTimeline.addEventListener('click', () => {
+        switchView(btnTimeline, timelineView);
+        // Initialize timeline canvas on first show
+        if (!timelineGraphEngine.initialized) {
+          timelineGraphEngine.init();
+        } else {
+          timelineGraphEngine.resize();
+        }
+      });
+
+      btnMap.addEventListener('click', () => switchView(btnMap, mapView));
+    })();
+
+    /* ── Execute handlers ── */
+    function executeCOA(option) {
+      const btn = event.target;
+      const origText = btn.textContent;
+      btn.textContent = 'DISPATCHING...';
+      btn.style.background = 'var(--green)';
+      btn.style.boxShadow = '0 0 24px var(--green-glow)';
+      setTimeout(() => {
+        btn.textContent = '✓ CONFIRMED';
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.style.background = '';
+          btn.style.boxShadow = '';
+        }, 2000);
+      }, 1500);
+      addCommsEntry('system', `[AI-COA] Executing Course of Action ${option} — Dispatching assets...`);
+    }
+
+    function executeFlightPlan() {
+      const btn = event.target;
+      const origText = btn.textContent;
+      btn.textContent = 'EXECUTING...';
+      btn.style.background = 'var(--green)';
+      btn.style.boxShadow = '0 0 24px var(--green-glow)';
+      setTimeout(() => {
+        btn.textContent = '✓ FLIGHT PLAN ACTIVE';
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.style.background = '';
+          btn.style.boxShadow = '';
+        }, 2000);
+      }, 1500);
+      addCommsEntry('system', `[FLIGHT-PLAN] Pushing waypoints WP-01 to WP-03 to swarm nodes...`);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       TIMELINE GRAPH — CANVAS WAVEFORM ENGINE
+       ══════════════════════════════════════════════════════════════ */
+    const timelineGraphEngine = {
+      initialized: false,
+      canvas: null,
+      ctx: null,
+      animId: null,
+      time: 0,
+      dpr: 1,
+
+      // Pre-generated waveform data (simulated activity levels over mission)
+      waveformData: null,
+
+      init() {
+        this.canvas = document.getElementById('timeline-graph-canvas');
+        if (!this.canvas) return;
+        this.ctx = this.canvas.getContext('2d');
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.generateWaveform();
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        this.initialized = true;
+        this.animate();
+      },
+
+      generateWaveform() {
+        // Generate 200 data points for the waveform
+        const points = 200;
+        this.waveformData = [];
+        for (let i = 0; i < points; i++) {
+          const x = i / points;
+          // Base activity level with some noise
+          let val = 0.2 + Math.sin(x * Math.PI * 3) * 0.15;
+          // Add spikes at anomaly positions (~18%, ~48%, ~72%, ~89%)
+          const anomalies = [0.18, 0.48, 0.72, 0.89];
+          for (const a of anomalies) {
+            const dist = Math.abs(x - a);
+            if (dist < 0.04) {
+              val += (1 - dist / 0.04) * 0.6;
+            }
+          }
+          // Random noise
+          val += (Math.random() - 0.5) * 0.08;
+          this.waveformData.push(Math.max(0, Math.min(1, val)));
+        }
+      },
+
+      resize() {
+        if (!this.canvas) return;
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        this.canvas.width = rect.width * this.dpr;
+        this.canvas.height = rect.height * this.dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      },
+
+      animate() {
+        this.time += 0.008;
+        this.draw();
+        this.animId = requestAnimationFrame(() => this.animate());
+      },
+
+      draw() {
+        const ctx = this.ctx;
+        const w = this.canvas.width / this.dpr;
+        const h = this.canvas.height / this.dpr;
+        const bottomPad = 20; // space for time labels
+        const drawH = h - bottomPad;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw grid lines
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.04)';
+        ctx.lineWidth = 0.5;
+        for (let y = 0; y < drawH; y += 20) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+        for (let x = 0; x < w; x += w / 10) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, drawH);
+          ctx.stroke();
+        }
+
+        if (!this.waveformData) return;
+
+        const data = this.waveformData;
+        const len = data.length;
+
+        // Draw filled area waveform
+        const gradient = ctx.createLinearGradient(0, 0, 0, drawH);
+        gradient.addColorStop(0, 'rgba(57, 255, 20, 0.25)');
+        gradient.addColorStop(0.5, 'rgba(0, 229, 255, 0.10)');
+        gradient.addColorStop(1, 'rgba(0, 229, 255, 0.02)');
+
+        ctx.beginPath();
+        ctx.moveTo(0, drawH);
+        for (let i = 0; i < len; i++) {
+          const x = (i / (len - 1)) * w;
+          const animOffset = Math.sin(this.time * 2 + i * 0.1) * 0.02;
+          const val = Math.max(0, Math.min(1, data[i] + animOffset));
+          const y = drawH - val * (drawH * 0.85);
+          if (i === 0) ctx.lineTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineTo(w, drawH);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Draw waveform line
+        ctx.beginPath();
+        for (let i = 0; i < len; i++) {
+          const x = (i / (len - 1)) * w;
+          const animOffset = Math.sin(this.time * 2 + i * 0.1) * 0.02;
+          const val = Math.max(0, Math.min(1, data[i] + animOffset));
+          const y = drawH - val * (drawH * 0.85);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(57, 255, 20, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = 'rgba(57, 255, 20, 0.5)';
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw secondary (lower) waveform for depth
+        ctx.beginPath();
+        for (let i = 0; i < len; i++) {
+          const x = (i / (len - 1)) * w;
+          const animOffset = Math.sin(this.time * 1.5 + i * 0.15 + 1) * 0.03;
+          const val = Math.max(0, Math.min(1, data[i] * 0.4 + animOffset + 0.05));
+          const y = drawH - val * (drawH * 0.85);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    };
+
+    /* ══════════════════════════════════════════════════════════════
+       SWARM TOPOLOGY MESH — CANVAS ANIMATION ENGINE
+       ══════════════════════════════════════════════════════════════ */
+    const topologyEngine = {
+      initialized: false,
+      canvas: null,
+      ctx: null,
+      animId: null,
+      nodes: [],
+      links: [],
+      time: 0,
+      dpr: 1,
+
+      // Node definitions
+      nodeData: [
+        { id: 'GCS', type: 'gcs', baseX: 0.5, baseY: 0.5, orbitR: 0, orbitSpeed: 0, phase: 0, color: '#FFFFFF', glowColor: 'rgba(0,229,255,0.6)' },
+        { id: 'TIDDA-01', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.22, orbitSpeed: 0.15, phase: 0, color: '#00E5FF', glowColor: 'rgba(0,229,255,0.4)' },
+        { id: 'TIDDA-02', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.25, orbitSpeed: 0.12, phase: 0.9, color: '#00E5FF', glowColor: 'rgba(0,229,255,0.4)' },
+        { id: 'TIDDA-03', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.18, orbitSpeed: 0.18, phase: 1.8, color: '#39FF14', glowColor: 'rgba(57,255,20,0.4)' },
+        { id: 'TIDDA-04', type: 'anomaly', baseX: 0.5, baseY: 0.5, orbitR: 0.28, orbitSpeed: 0.10, phase: 2.6, color: '#FF3D00', glowColor: 'rgba(255,61,0,0.6)' },
+        { id: 'TIDDA-05', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.20, orbitSpeed: 0.14, phase: 3.5, color: '#00E5FF', glowColor: 'rgba(0,229,255,0.4)' },
+        { id: 'TIDDA-06', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.24, orbitSpeed: 0.16, phase: 4.3, color: '#39FF14', glowColor: 'rgba(57,255,20,0.4)' },
+        { id: 'TIDDA-07', type: 'drone', baseX: 0.5, baseY: 0.5, orbitR: 0.19, orbitSpeed: 0.13, phase: 5.1, color: '#00E5FF', glowColor: 'rgba(0,229,255,0.4)' },
+      ],
+
+      // Mesh link definitions [fromIdx, toIdx]
+      linkData: [
+        // GCS → all drones
+        [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7],
+        // Inter-drone mesh
+        [1, 2], [2, 3], [3, 5], [5, 6], [6, 7], [7, 1], [1, 5], [4, 3], [4, 6],
+      ],
+
+      init() {
+        this.canvas = document.getElementById('topology-canvas');
+        if (!this.canvas) return;
+        this.ctx = this.canvas.getContext('2d');
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.resize();
+        this.buildNodes();
+        this.populateNodeList();
+        window.addEventListener('resize', () => this.resize());
+        this.initialized = true;
+        this.animate();
+      },
+
+      resize() {
+        if (!this.canvas) return;
+        const parent = this.canvas.parentElement;
+        const w = parent.clientWidth;
+        const h = parent.clientHeight;
+        this.canvas.width = w * this.dpr;
+        this.canvas.height = h * this.dpr;
+        this.canvas.style.width = w + 'px';
+        this.canvas.style.height = h + 'px';
+        this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        this.w = w;
+        this.h = h;
+      },
+
+      buildNodes() {
+        this.nodes = this.nodeData.map(d => ({
+          ...d,
+          x: 0, y: 0,
+          radius: d.type === 'gcs' ? 14 : 8,
+        }));
+      },
+
+      populateNodeList() {
+        const list = document.getElementById('swarm-node-list');
+        if (!list) return;
+        list.innerHTML = '';
+        this.nodeData.forEach(n => {
+          const entry = document.createElement('div');
+          entry.className = 'swarm-node-entry';
+          const isAnomaly = n.type === 'anomaly';
+          const latency = isAnomaly ? `${(180 + Math.random() * 120).toFixed(0)}ms` :
+            n.type === 'gcs' ? '0ms' : `${(8 + Math.random() * 20).toFixed(0)}ms`;
+          entry.innerHTML = `
+            <div class="node-dot ${isAnomaly ? 'warn' : 'ok'}"></div>
+            <span class="node-name">${n.id}</span>
+            <span class="node-latency">${latency}</span>
+          `;
+          list.appendChild(entry);
+        });
+      },
+
+      getNodePosition(node, time) {
+        const cx = this.w * node.baseX;
+        const cy = this.h * node.baseY;
+
+        if (node.type === 'gcs') {
+          // GCS stays center with subtle breathing
+          return {
+            x: cx + Math.sin(time * 0.3) * 2,
+            y: cy + Math.cos(time * 0.4) * 2,
+          };
+        }
+
+        // Orbit around center
+        const minDim = Math.min(this.w, this.h);
+        const r = node.orbitR * minDim;
+        const angle = node.phase + time * node.orbitSpeed;
+        let x = cx + Math.cos(angle) * r;
+        let y = cy + Math.sin(angle) * r * 0.6; // Elliptical
+
+        // Sine-wave floating
+        x += Math.sin(time * 0.7 + node.phase * 2) * 6;
+        y += Math.cos(time * 0.5 + node.phase * 3) * 8;
+
+        // Anomaly jitter (packet loss glitch)
+        if (node.type === 'anomaly') {
+          const jitterIntensity = Math.sin(time * 3.5) > 0.2 ? 1 : 0;
+          x += (Math.random() - 0.5) * 12 * jitterIntensity;
+          y += (Math.random() - 0.5) * 12 * jitterIntensity;
+        }
+
+        return { x, y };
+      },
+
+      drawBackground(time) {
+        const ctx = this.ctx;
+        // Dark clear
+        ctx.fillStyle = '#0B0E14';
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        // Subtle radial gradient from center
+        const grd = ctx.createRadialGradient(
+          this.w / 2, this.h / 2, 0,
+          this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.6
+        );
+        grd.addColorStop(0, 'rgba(0, 229, 255, 0.03)');
+        grd.addColorStop(0.5, 'rgba(0, 229, 255, 0.01)');
+        grd.addColorStop(1, 'transparent');
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, this.w, this.h);
+
+        // Grid dots
+        ctx.fillStyle = 'rgba(55, 65, 81, 0.2)';
+        const spacing = 40;
+        for (let x = spacing; x < this.w; x += spacing) {
+          for (let y = spacing; y < this.h; y += spacing) {
+            ctx.beginPath();
+            ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Concentric rings (radar-like)
+        const cx = this.w / 2;
+        const cy = this.h / 2;
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.04)';
+        ctx.lineWidth = 1;
+        const ringCount = 4;
+        const maxR = Math.min(this.w, this.h) * 0.42;
+        for (let i = 1; i <= ringCount; i++) {
+          const r = (i / ringCount) * maxR;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, r, r * 0.6, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Rotating scan line
+        const scanAngle = time * 0.4;
+        const scanLen = maxR * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(scanAngle) * scanLen, cy + Math.sin(scanAngle) * scanLen * 0.6);
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.06)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      },
+
+      drawLinks(time) {
+        const ctx = this.ctx;
+
+        this.linkData.forEach(([fromIdx, toIdx]) => {
+          const from = this.nodes[fromIdx];
+          const to = this.nodes[toIdx];
+          const isAnomalyLink = from.type === 'anomaly' || to.type === 'anomaly';
+
+          // Anomaly links blink harshly
+          if (isAnomalyLink) {
+            const blinkPhase = Math.sin(time * 4.5 + fromIdx);
+            if (blinkPhase < -0.3) return; // Skip drawing = blink off
+            const alpha = 0.15 + Math.max(0, blinkPhase) * 0.4;
+            ctx.strokeStyle = `rgba(255, 61, 0, ${alpha})`;
+            ctx.lineWidth = 1.2;
+
+            // Dashed line for anomaly
+            ctx.setLineDash([6, 4]);
+          } else {
+            // Normal healthy links
+            const alpha = 0.08 + Math.sin(time * 0.8 + fromIdx * 0.5) * 0.04;
+            ctx.strokeStyle = `rgba(0, 229, 255, ${alpha + 0.06})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([]);
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Data packet animation (small dots traveling along links)
+          if (!isAnomalyLink || Math.random() > 0.5) {
+            const t = ((time * (0.3 + fromIdx * 0.05)) % 1);
+            const px = from.x + (to.x - from.x) * t;
+            const py = from.y + (to.y - from.y) * t;
+            ctx.fillStyle = isAnomalyLink ? 'rgba(255, 61, 0, 0.6)' : 'rgba(0, 229, 255, 0.5)';
+            ctx.beginPath();
+            ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+      },
+
+      drawNodes(time) {
+        const ctx = this.ctx;
+
+        this.nodes.forEach(node => {
+          const { x, y, radius, type, id, color, glowColor } = node;
+
+          // Outer glow
+          const glowRadius = radius * (type === 'gcs' ? 4 : 3);
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+
+          if (type === 'anomaly') {
+            const blinkVal = Math.sin(time * 5);
+            const intensity = 0.15 + Math.max(0, blinkVal) * 0.25;
+            glow.addColorStop(0, `rgba(255, 61, 0, ${intensity})`);
+            glow.addColorStop(1, 'transparent');
+          } else if (type === 'gcs') {
+            glow.addColorStop(0, 'rgba(0, 229, 255, 0.2)');
+            glow.addColorStop(0.5, 'rgba(0, 229, 255, 0.05)');
+            glow.addColorStop(1, 'transparent');
+          } else {
+            glow.addColorStop(0, glowColor);
+            glow.addColorStop(1, 'transparent');
+          }
+
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Outer ring (GCS gets double ring)
+          if (type === 'gcs') {
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
+            ctx.lineWidth = 1;
+            const ringR = radius + 6 + Math.sin(time * 1.5) * 2;
+            ctx.beginPath();
+            ctx.arc(x, y, ringR, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Rotating tick marks
+            for (let i = 0; i < 8; i++) {
+              const a = (i / 8) * Math.PI * 2 + time * 0.5;
+              const r1 = ringR + 2;
+              const r2 = ringR + 5;
+              ctx.beginPath();
+              ctx.moveTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1);
+              ctx.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2);
+              ctx.strokeStyle = 'rgba(0, 229, 255, 0.2)';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+          }
+
+          // Node body
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+          if (type === 'anomaly') {
+            const blink = Math.sin(time * 5);
+            const fillAlpha = 0.6 + Math.max(0, blink) * 0.4;
+            ctx.fillStyle = `rgba(255, 61, 0, ${fillAlpha})`;
+            ctx.strokeStyle = `rgba(255, 110, 64, ${0.5 + Math.max(0, blink) * 0.5})`;
+          } else if (type === 'gcs') {
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.85)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          } else {
+            const pulse = 0.6 + Math.sin(time * 1.2 + node.phase) * 0.2;
+            ctx.fillStyle = color;
+            ctx.globalAlpha = pulse;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          }
+
+          ctx.lineWidth = 1.5;
+          ctx.fill();
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // Inner highlight dot
+          ctx.beginPath();
+          ctx.arc(x - radius * 0.25, y - radius * 0.25, radius * 0.25, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.fill();
+
+          // Label
+          ctx.font = `600 9px 'JetBrains Mono', monospace`;
+          ctx.textAlign = 'center';
+          const labelY = y + radius + 14;
+
+          if (type === 'anomaly') {
+            // Glitch label effect
+            const glitch = Math.sin(time * 6) > 0.4;
+            if (glitch) {
+              ctx.fillStyle = 'rgba(255, 61, 0, 0.7)';
+              ctx.fillText(id, x + (Math.random() - 0.5) * 3, labelY + (Math.random() - 0.5) * 2);
+            }
+            ctx.fillStyle = '#FF6E40';
+            ctx.fillText(id, x, labelY);
+
+            // "WEAK SIGNAL" sub-label
+            ctx.font = `700 7px 'JetBrains Mono', monospace`;
+            const wsBlink = Math.sin(time * 3) > 0 ? 0.9 : 0.3;
+            ctx.fillStyle = `rgba(255, 61, 0, ${wsBlink})`;
+            ctx.fillText('⚠ WEAK SIGNAL', x, labelY + 11);
+          } else if (type === 'gcs') {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillText('◆ ' + id, x, labelY);
+            ctx.font = `500 7px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.6)';
+            ctx.fillText('GROUND CONTROL', x, labelY + 11);
+          } else {
+            ctx.fillStyle = 'rgba(226, 232, 240, 0.7)';
+            ctx.fillText(id, x, labelY);
+          }
+        });
+      },
+
+      drawHUD(time) {
+        const ctx = this.ctx;
+        // Top-left corner HUD info
+        ctx.font = `700 8px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.5)';
+        ctx.textAlign = 'left';
+        ctx.fillText('MAVLINK MESH v2.1', 12, 20);
+        ctx.fillText(`NODES: ${this.nodes.length}  |  LINKS: ${this.linkData.length}`, 12, 32);
+        ctx.fillText(`UPT: ${new Date().toLocaleTimeString('en-GB', { hour12: false })}`, 12, 44);
+
+        // Bottom-right corner
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(100, 116, 139, 0.4)';
+        ctx.fillText('TIDDA SWARM MESH TOPOLOGY', this.w - 12, this.h - 12);
+
+        // Corner brackets (tactical aesthetic)
+        const bracketSize = 18;
+        const bracketGap = 6;
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.15)';
+        ctx.lineWidth = 1;
+
+        // Top-left bracket
+        ctx.beginPath();
+        ctx.moveTo(bracketGap, bracketGap + bracketSize);
+        ctx.lineTo(bracketGap, bracketGap);
+        ctx.lineTo(bracketGap + bracketSize, bracketGap);
+        ctx.stroke();
+
+        // Top-right bracket
+        ctx.beginPath();
+        ctx.moveTo(this.w - bracketGap - bracketSize, bracketGap);
+        ctx.lineTo(this.w - bracketGap, bracketGap);
+        ctx.lineTo(this.w - bracketGap, bracketGap + bracketSize);
+        ctx.stroke();
+
+        // Bottom-left bracket
+        ctx.beginPath();
+        ctx.moveTo(bracketGap, this.h - bracketGap - bracketSize);
+        ctx.lineTo(bracketGap, this.h - bracketGap);
+        ctx.lineTo(bracketGap + bracketSize, this.h - bracketGap);
+        ctx.stroke();
+
+        // Bottom-right bracket
+        ctx.beginPath();
+        ctx.moveTo(this.w - bracketGap - bracketSize, this.h - bracketGap);
+        ctx.lineTo(this.w - bracketGap, this.h - bracketGap);
+        ctx.lineTo(this.w - bracketGap, this.h - bracketGap - bracketSize);
+        ctx.stroke();
+      },
+
+      animate() {
+        this.time += 0.016; // ~60fps
+
+        // Update node positions
+        this.nodes.forEach(node => {
+          const pos = this.getNodePosition(node, this.time);
+          node.x = pos.x;
+          node.y = pos.y;
+        });
+
+        // Draw
+        this.drawBackground(this.time);
+        this.drawLinks(this.time);
+        this.drawNodes(this.time);
+        this.drawHUD(this.time);
+
+        this.animId = requestAnimationFrame(() => this.animate());
+      },
+
+      destroy() {
+        if (this.animId) {
+          cancelAnimationFrame(this.animId);
+          this.animId = null;
+        }
+      }
+    };
+
+    function resetTopologyView() {
+      topologyEngine.time = 0;
+    }
   </script>
 </body>
 
