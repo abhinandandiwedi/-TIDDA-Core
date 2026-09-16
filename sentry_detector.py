@@ -11,6 +11,7 @@ import io
 import sys
 import time
 from typing import Optional
+import cv2
 
 # ── Dependency bootstrap (same pattern as main module) ────────────
 try:
@@ -140,30 +141,43 @@ class SentryDetector:
             return None
 
         # ── Extract person detections ─────────────────────────────
-        if not results or len(results) == 0:
-            return None
+        person_boxes = None
+        if results and len(results) > 0:
+            result = results[0]
+            if result.boxes is not None and len(result.boxes) > 0:
+                person_mask = result.boxes.cls == PERSON_CLASS_ID
+                person_boxes = result.boxes[person_mask]
 
-        result = results[0]
-        boxes = result.boxes
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
-        if boxes is None or len(boxes) == 0:
-            return None
-
-        # Filter for person class (should already be filtered, but belt-and-suspenders)
-        person_mask = boxes.cls == PERSON_CLASS_ID
-        person_boxes = boxes[person_mask]
-
-        if len(person_boxes) == 0:
-            return None
+        if person_boxes is None or len(person_boxes) == 0:
+            _, buffer = cv2.imencode('.jpg', img_bgr)
+            return {
+                "annotated_frame": base64.b64encode(buffer).decode('utf-8')
+            }
 
         # Build response
         confidences = person_boxes.conf.cpu().numpy().tolist()
         bboxes = person_boxes.xyxy.cpu().numpy().tolist()
+        
+        # ── Draw bounding boxes ───────────────────────────────────
+        # Convert RGB to BGR for cv2
+        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        for box, conf in zip(bboxes, confidences):
+            x1, y1, x2, y2 = map(int, box)
+            cv2.rectangle(img_bgr, (x1, y1), (x2, y2), (0, 0, 255), 2)  # Red box
+            label = f"PERSON {conf:.2f}"
+            cv2.putText(img_bgr, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            
+        # Encode back to base64 JPEG
+        _, buffer = cv2.imencode('.jpg', img_bgr)
+        annotated_b64 = base64.b64encode(buffer).decode('utf-8')
 
         return {
             "confidence": round(max(confidences), 3),
             "person_count": len(person_boxes),
             "bboxes": [[round(c, 1) for c in box] for box in bboxes],
+            "annotated_frame": annotated_b64
         }
 
     @property

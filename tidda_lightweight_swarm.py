@@ -36,20 +36,22 @@ from fusion_engine import FusionEngine
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
-    import websockets
-    import websockets.server
-    import websockets.exceptions
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
+    import uvicorn
 except ImportError:
-    print("[SYSTEM] websockets not found — installing...")
+    print("[SYSTEM] fastapi/uvicorn not found — installing...")
     import subprocess
     subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "websockets"],
+        [sys.executable, "-m", "pip", "install", "fastapi", "uvicorn", "starlette"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    import websockets
-    import websockets.server
-    import websockets.exceptions
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.middleware.cors import CORSMiddleware
+    import uvicorn
 
 try:
     import httpx
@@ -848,7 +850,7 @@ class GothamAnalyzer:
 
         Dead connections are silently pruned — the server never crashes.
         """
-        stale: List[websockets.WebSocketServerProtocol] = []
+        stale: List[WebSocket] = []
 
         for alert in self._alerts:
             payload = json.dumps(alert)
@@ -1203,7 +1205,7 @@ def _build_system_prompt(prompt_telemetry: dict) -> str:
 
 
 async def _handle_ai_query(
-    websocket: websockets.WebSocketServerProtocol,
+    websocket: WebSocket,
     prompt: str,
     history: list,
     telemetry_snapshot: dict,
@@ -1211,7 +1213,7 @@ async def _handle_ai_query(
     """Make a Groq LLM call server-side and send the response back via WebSocket."""
     if not GROQ_API_KEY:
         try:
-            await websocket.send(json.dumps({
+            await websocket.send_text(json.dumps({
                 "type": "ai_response",
                 "text": "⚠ GROQ_API_KEY not set on server. "
                         "Add your key to the .env file and restart.",
@@ -1253,7 +1255,7 @@ async def _handle_ai_query(
             .strip()
         )
 
-        await websocket.send(json.dumps({
+        await websocket.send_text(json.dumps({
             "type": "ai_response",
             "text": reply,
         }))
@@ -1262,7 +1264,7 @@ async def _handle_ai_query(
     except Exception as e:
         log("AI", f"Groq call failed: {e}")
         try:
-            await websocket.send(json.dumps({
+            await websocket.send_text(json.dumps({
                 "type": "ai_response",
                 "text": f"Comms failure: {e}",
                 "error": True,
@@ -1272,8 +1274,7 @@ async def _handle_ai_query(
 
 
 async def _ws_handler(
-    websocket: websockets.WebSocketServerProtocol,
-    path: str = "",
+    websocket: WebSocket,
 ) -> None:
     """
     Handle a single GCS dashboard WebSocket connection OR a mobile node.
@@ -1288,7 +1289,8 @@ async def _ws_handler(
       removed from _connected (no swarm broadcast to phones) and all subsequent
       messages are routed to _mobile_registry instead of the dashboard handler.
     """
-    addr = getattr(websocket, "remote_address", "unknown")
+    addr = getattr(websocket, "client", "unknown")
+    await websocket.accept()
     # Optimistically add as a dashboard client; removed below if it's a phone.
     _connected.add(websocket)
     log("WS", f"🟢 Connection from {addr}  (dashboard clients: {len(_connected)})")
@@ -1297,7 +1299,7 @@ async def _ws_handler(
     mobile_node_id: Optional[str] = None
 
     try:
-        async for message in websocket:
+        async for message in websocket.iter_text():
             if not isinstance(message, str) or not message.strip():
                 continue
 
@@ -1423,35 +1425,55 @@ async def _ws_handler(
                                     timestamp=detection_ts,
                                 )
 
-                        alert = {
-                            "type": "sentry_alert",
-                            "node_id": node_id,
-                            "confidence": result["confidence"],
-                            "person_count": result["person_count"],
-                            "timestamp": detection_ts,
-                            "fusion": fused_entity,
-                        }
-                        alert_json = json.dumps(alert)
-                        log("SENTRY", f"🚨 PERSON DETECTED by {node_id}  "
-                                      f"conf={result['confidence']:.2f}  "
-                                      f"count={result['person_count']}"
-                                      + (f"  entity={fused_entity['entity_id']}" if fused_entity else "  GPS=unavailable"))
-                        stale_clients: list = []
-                        for client in list(_connected):
-                            try:
-                                await client.send(alert_json)
-                            except Exception:
-                                stale_clients.append(client)
-                        for client in stale_clients:
-                            _connected.discard(client)
+                        alert = None
+                        if result.get("person_count", 0) > 0:
+                            alert = {
+                                "type": "sentry_alert",
+                                "node_id": node_id,
+                                "confidence": result.get("confidence", 0.0),
+                                "person_count": result.get("person_count", 0),
+                                "timestamp": detection_ts,
+                                "fusion": fused_entity,
+                            }
+                            alert_json = json.dumps(alert)
+                            log("SENTRY", f"🚨 PERSON DETECTED by {node_id}  "
+                                          f"conf={result.get('confidence', 0.0):.2f}  "
+                                          f"count={result.get('person_count', 0)}"
+                                          + (f"  entity={fused_entity['entity_id']}" if fused_entity else "  GPS=unavailable"))
+                            
+                            stale_clients: list = []
+                            for client in list(_connected):
+                                try:
+                                    await client.send(alert_json)
+                                except Exception:
+                                    stale_clients.append(client)
+                            for client in stale_clients:
+                                _connected.discard(client)
+
+                        # Always broadcast the annotated frame to dashboard
+                        if "annotated_frame" in result:
+                            live_payload = json.dumps({
+                                "type": "live_frame",
+                                "node_id": node_id,
+                                "frame": result["annotated_frame"],
+                                "timestamp": detection_ts,
+                            })
+                            stale_clients = []
+                            for client in list(_connected):
+                                try:
+                                    await client.send(live_payload)
+                                except Exception:
+                                    stale_clients.append(client)
+                            for client in stale_clients:
+                                _connected.discard(client)
 
                     asyncio.create_task(_run_sentry(mobile_node_id, frame_data))
 
                 # ── Mapping pipeline camera ingestion (Step 8) ───────────
                 _mapping_pipeline.process_camera_frame(mobile_node_id, frame_data)
 
-                # ── Live feed / sentry+live: relay frame to dashboards ───
-                if _node_mode in ("live_feed", "sentry") and frame_data:
+                # ── Live feed: relay raw frame to dashboards ───
+                if _node_mode == "live_feed" and frame_data:
                     live_payload = json.dumps({
                         "type": "live_frame",
                         "node_id": mobile_node_id,
@@ -1516,7 +1538,7 @@ async def _ws_handler(
                     **_scan_session.to_state(),
                 })
                 try:
-                    await websocket.send(state_json)
+                    await websocket.send_text(state_json)
                 except Exception:
                     pass
                 continue
@@ -1536,7 +1558,7 @@ async def _ws_handler(
                     **_mapping_pipeline.get_world_state(),
                 })
                 try:
-                    await websocket.send(world_json)
+                    await websocket.send_text(world_json)
                 except Exception:
                     pass
                 continue
@@ -1561,7 +1583,7 @@ async def _ws_handler(
                 })
                 for client in list(_connected):
                     try:
-                        await client.send(clear_msg)
+                        await client.send_text(clear_msg)
                     except Exception:
                         pass
                 continue
@@ -1578,9 +1600,7 @@ async def _ws_handler(
                 _handle_command(message)
                 _handle_v2_command(message, _swarm_ref)  # V2.0 commands
 
-    except websockets.exceptions.ConnectionClosedOK:
-        pass
-    except websockets.exceptions.ConnectionClosedError:
+    except WebSocketDisconnect:
         pass
     except Exception:
         # Catch-all: any exotic transport error should NOT kill the server
@@ -1614,7 +1634,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
     try:
         while True:
             if _connected:
-                stale: List[websockets.WebSocketServerProtocol] = []
+                stale: List[WebSocket] = []
 
                 for drone in swarm:
                     payload = json.dumps(drone.to_telemetry())
@@ -1622,7 +1642,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                     for client in list(_connected):
                         try:
                             await client.send(payload)
-                        except websockets.exceptions.ConnectionClosed:
+                        except WebSocketDisconnect:
                             stale.append(client)
                         except Exception:
                             # Any exotic send error → mark stale, move on
@@ -1639,7 +1659,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                         payload = json.dumps(weapon.to_telemetry())
                         for client in list(_connected):
                             try:
-                                await client.send(payload)
+                                await client.send_text(payload)
                             except Exception:
                                 pass
 
@@ -1649,7 +1669,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                         payload = json.dumps(alert)
                         for client in list(_connected):
                             try:
-                                await client.send(payload)
+                                await client.send_text(payload)
                             except Exception:
                                 pass
 
@@ -1661,7 +1681,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                         payload = json.dumps(fusion_alert)
                         for client in list(_connected):
                             try:
-                                await client.send(payload)
+                                await client.send_text(payload)
                             except Exception:
                                 stale.append(client)
 
@@ -1862,61 +1882,66 @@ async def main() -> None:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, _request_shutdown)
 
-    # ── Start WebSocket server ────────────────────────────────────
-    ws_server: Optional[websockets.WebSocketServer] = None
-    wss_server: Optional[websockets.WebSocketServer] = None
+    # ── Start FastAPI Server ──────────────────────────────────────
+    app = FastAPI()
+
+    # Enable CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Static routes
+    if not os.path.exists("reconstruction"):
+        os.makedirs("reconstruction")
+    app.mount("/maps", StaticFiles(directory="reconstruction"), name="maps")
+
+    @app.websocket("/ws/ui")
+    async def websocket_ui(websocket: WebSocket):
+        await _ws_handler(websocket)
+
+    @app.websocket("/ws/mobile")
+    async def websocket_mobile(websocket: WebSocket):
+        await _ws_handler(websocket)
+
+    config = uvicorn.Config(
+        app=app,
+        host=WS_HOST,
+        port=WS_PORT,
+        log_level="error", # Keep our custom logging visible
+    )
+    if os.path.isfile(TLS_CERT_FILE) and os.path.isfile(TLS_KEY_FILE):
+        config.ssl_certfile = TLS_CERT_FILE
+        config.ssl_keyfile = TLS_KEY_FILE
+
+    server = uvicorn.Server(config)
+    
     try:
-        ws_server = await websockets.serve(
-            _ws_handler,
-            WS_HOST,
-            WS_PORT,
-            ping_interval=20,       # keep-alive every 20 s
-            ping_timeout=20,        # drop unresponsive clients after 20 s
-            close_timeout=5,        # don't wait forever on close handshake
-        )
-        log("WS", f"Server listening on ws://{WS_HOST}:{WS_PORT}/ws/ui")
-
-        # ── Secure WebSocket for mobile nodes over LAN ────────────────
-        if os.path.isfile(TLS_CERT_FILE) and os.path.isfile(TLS_KEY_FILE):
-            tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-            tls_context.load_cert_chain(TLS_CERT_FILE, TLS_KEY_FILE)
-            wss_server = await websockets.serve(
-                _ws_handler,
-                WS_HOST,
-                WSS_PORT,
-                ssl=tls_context,
-                ping_interval=20,
-                ping_timeout=20,
-                close_timeout=5,
-            )
-            log("WS", f"Secure mobile WebSocket: wss://{WS_HOST}:{WSS_PORT}/ws/mobile")
-        else:
-            log("WS", "Secure mobile WebSocket unavailable — local certificate not found")
-
         log("SYSTEM", "All systems online — waiting for GCS dashboard connections…")
         log("SYSTEM", "Press Ctrl+C to shut down cleanly.")
-
-        # Block until shutdown is requested (or KeyboardInterrupt)
+        
+        # We start the server as a concurrent task so we can still await our shutdown event
+        server_task = asyncio.create_task(server.serve())
+        
+        # Block until shutdown is requested
         await _shutdown_event.wait()
+        
+        # Trigger server shutdown gracefully
+        server.should_exit = True
+        await server_task
 
     except asyncio.CancelledError:
         pass
     finally:
         # ── Clean shutdown sequence ───────────────────────────────
         log("SYSTEM", "Shutdown sequence initiated…")
+        
+        server.should_exit = True
 
-        # 1. Stop accepting new WS connections
-        if ws_server is not None:
-            ws_server.close()
-            await ws_server.wait_closed()
-            log("WS", "Server closed")
-
-        if wss_server is not None:
-            wss_server.close()
-            await wss_server.wait_closed()
-            log("WS", "Secure server closed")
-
-        # 2. Close all active dashboard connections gracefully
+        # Close all active dashboard connections gracefully
         if _connected:
             log("WS", f"Closing {len(_connected)} active client(s)…")
             close_tasks = [
@@ -1932,7 +1957,7 @@ async def main() -> None:
         log("SYSTEM", "🛑 TIDDA Swarm Simulator — clean shutdown complete.")
 
 
-async def _safe_close(ws: websockets.WebSocketServerProtocol) -> None:
+async def _safe_close(ws: WebSocket) -> None:
     """Close a WebSocket connection without raising."""
     try:
         await asyncio.wait_for(ws.close(), timeout=2.0)

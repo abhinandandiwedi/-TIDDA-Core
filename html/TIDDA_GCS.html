@@ -1,0 +1,3045 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TIDDA GCS v3.0 — Tactical Ground Control Station</title>
+  <meta name="description" content="Project TIDDA - Autonomous Drone Swarm Ground Control Station with 3D Mapping">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <!-- Three.js for 3D Point Cloud -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       TIDDA GCS v3.0 — TACTICAL DESIGN SYSTEM
+       Deep Military Dark Mode | Glassmorphism | Tactical Accents
+       ══════════════════════════════════════════════════════════════ */
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* ── Core Backgrounds ── */
+      --bg-primary: #0B0E14;
+      --bg-secondary: #111827;
+      --bg-panel: rgba(17, 24, 39, 0.85);
+      --bg-card: rgba(15, 20, 30, 0.9);
+      --bg-input: rgba(17, 24, 39, 0.6);
+      --bg-hover: rgba(255, 255, 255, 0.03);
+
+      /* ── Borders ── */
+      --border: rgba(55, 65, 81, 0.4);
+      --border-light: rgba(55, 65, 81, 0.2);
+      --border-accent: rgba(0, 229, 255, 0.3);
+
+      /* ── Tactical Accents ── */
+      --cyan: #00E5FF;
+      --cyan-dim: rgba(0, 229, 255, 0.15);
+      --cyan-glow: rgba(0, 229, 255, 0.4);
+      --green: #39FF14;
+      --green-dim: rgba(57, 255, 20, 0.15);
+      --green-glow: rgba(57, 255, 20, 0.4);
+      --amber: #F59E0B;
+      --amber-dim: rgba(245, 158, 11, 0.15);
+      --red: #FF3D00;
+      --red-dim: rgba(255, 61, 0, 0.15);
+      --red-glow: rgba(255, 61, 0, 0.4);
+      --blue: #2563EB;
+
+      /* ── Text ── */
+      --text-primary: #E2E8F0;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --text-dim: #475569;
+
+      /* ── Spacing ── */
+      --gap: 3px;
+      --panel-pad: 12px;
+      --radius: 6px;
+      --radius-lg: 10px;
+
+      /* ── Fonts ── */
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       BOOT SCREEN
+       ══════════════════════════════════════════════════════════════ */
+    #boot-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+
+    #boot-screen.hidden {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+
+    .boot-content {
+      text-align: center;
+    }
+
+    .boot-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 32px;
+      box-shadow: 0 0 60px var(--cyan-glow), 0 0 120px rgba(0, 229, 255, 0.15);
+      position: relative;
+      animation: boot-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes boot-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 60px var(--cyan-glow), 0 0 120px rgba(0, 229, 255, 0.15);
+      }
+
+      50% {
+        box-shadow: 0 0 80px var(--cyan-glow), 0 0 160px rgba(0, 229, 255, 0.25);
+      }
+    }
+
+    .boot-logo svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+
+    .boot-ring {
+      position: absolute;
+      inset: -18px;
+      border: 1px dashed var(--cyan-glow);
+      border-radius: 50%;
+      animation: spin 12s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .boot-title {
+      font-size: 48px;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -2px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .boot-title span {
+      color: var(--cyan);
+    }
+
+    .boot-subtitle {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      margin-bottom: 40px;
+      opacity: 0.7;
+    }
+
+    .boot-btn {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 8px 32px var(--cyan-glow);
+      transition: transform 0.15s, box-shadow 0.3s;
+    }
+
+    .boot-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 40px var(--cyan-glow);
+    }
+
+    .boot-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MAIN APP LAYOUT
+       ══════════════════════════════════════════════════════════════ */
+    #app {
+      display: none;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    #app.visible {
+      display: flex;
+    }
+
+    /* ── Header Bar ── */
+    .header-bar {
+      height: 36px;
+      min-height: 36px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 100;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-logo-icon {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    .header-logo-icon svg {
+      width: 13px;
+      height: 13px;
+      color: white;
+    }
+
+    .header-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .header-title strong {
+      color: var(--text-primary);
+    }
+
+    .header-spacer {
+      flex: 1;
+    }
+
+    .header-clock {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      text-shadow: 0 0 8px var(--green-glow);
+      letter-spacing: 1px;
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      animation: status-pulse 2s ease-in-out infinite;
+    }
+
+    .status-dot.connected {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green-glow);
+    }
+
+    .status-dot.disconnected {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red-glow);
+      animation: none;
+    }
+
+    @keyframes status-pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* ── Main Body (toolbar + content) ── */
+    .main-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Left Icon Toolbar ── */
+    .icon-toolbar {
+      width: 42px;
+      min-width: 42px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 2px;
+    }
+
+    .toolbar-btn {
+      width: 34px;
+      height: 34px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+    }
+
+    .toolbar-btn.active {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+    }
+
+    .toolbar-btn.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: var(--cyan);
+      border-radius: 0 2px 2px 0;
+    }
+
+    .toolbar-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .toolbar-spacer {
+      flex: 1;
+    }
+
+    .toolbar-divider {
+      width: 20px;
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    /* ── Content Area ── */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      gap: var(--gap);
+      padding: var(--gap);
+    }
+
+    /* ── Top Row (Video + 3D Map) ── */
+    .top-row {
+      flex: 1;
+      display: flex;
+      gap: var(--gap);
+      min-height: 0;
+    }
+
+    /* ── Bottom Row (Status + Log + Cards) ── */
+    .bottom-row {
+      height: 220px;
+      min-height: 220px;
+      display: flex;
+      gap: var(--gap);
+    }
+
+    /* ── Bottom Bar ── */
+    .bottom-bar {
+      height: 70px;
+      min-height: 70px;
+      display: flex;
+      gap: var(--gap);
+      padding: 0 var(--gap) var(--gap) var(--gap);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       PANEL SYSTEM — Glassmorphism
+       ══════════════════════════════════════════════════════════════ */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel-header {
+      height: 30px;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--panel-pad);
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .panel-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .panel-title .accent {
+      color: var(--cyan);
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .panel-action-btn {
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: transparent;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-dim);
+      transition: all 0.15s;
+    }
+
+    .panel-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-secondary);
+    }
+
+    .panel-action-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       LIVE VIDEO FEED PANEL
+       ══════════════════════════════════════════════════════════════ */
+    .video-panel {
+      flex: 1;
+    }
+
+    .video-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #0a0c10;
+      overflow: hidden;
+    }
+
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .video-placeholder svg {
+      width: 48px;
+      height: 48px;
+      color: var(--text-dim);
+      opacity: 0.4;
+    }
+
+    .video-placeholder span {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #live-video-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    #live-video-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    /* Video HUD Overlay */
+    .video-hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+    }
+
+    .hud-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-primary);
+      background: rgba(0, 0, 0, 0.65);
+      padding: 3px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+    }
+
+    .hud-badge.live {
+      color: var(--green);
+      border: 1px solid var(--green-dim);
+    }
+
+    .hud-bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+    }
+
+    /* YOLO Detection Overlay */
+    .detection-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .detection-box {
+      position: absolute;
+      border: 2px solid var(--red);
+      background: rgba(255, 61, 0, 0.08);
+      box-shadow: 0 0 8px var(--red-glow);
+    }
+
+    .detection-label {
+      position: absolute;
+      top: -20px;
+      left: 0;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--red);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 2px 6px;
+      border-radius: 2px;
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border: 1px solid var(--red);
+    }
+
+    .detection-label.person {
+      color: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .detection-label.tracking {
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       3D POINT CLOUD MAP PANEL
+       ══════════════════════════════════════════════════════════════ */
+    .map-panel {
+      flex: 1.2;
+    }
+
+    .map-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #three-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Map tools overlay */
+    .map-tools {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 5;
+    }
+
+    .map-tool-btn {
+      width: 28px;
+      height: 28px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .map-tool-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .map-tool-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Layers sidebar */
+    .layers-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 160px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      border-left: 1px solid var(--border-light);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .layers-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .layer-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .layer-item .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .layer-chevron {
+      margin-left: auto;
+      color: var(--text-dim);
+    }
+
+    .layer-chevron svg {
+      width: 10px;
+      height: 10px;
+    }
+
+    /* Mission controls */
+    .mission-controls {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mission-btn {
+      padding: 6px 12px;
+      background: rgba(0, 229, 255, 0.1);
+      border: 1px solid rgba(0, 229, 255, 0.3);
+      border-radius: 4px;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .mission-btn:hover {
+      background: rgba(0, 229, 255, 0.2);
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    /* Altitude widget */
+    .altitude-widget {
+      position: absolute;
+      bottom: 8px;
+      right: 170px;
+      left: 8px;
+      height: 40px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      border: 1px solid var(--border-light);
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+
+    .alt-label {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .alt-graph {
+      flex: 1;
+      height: 20px;
+      position: relative;
+    }
+
+    .alt-graph canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DRONE STATUS PANEL (Bottom-Left)
+       ══════════════════════════════════════════════════════════════ */
+    .status-panel {
+      width: 280px;
+      min-width: 280px;
+    }
+
+    .status-body {
+      padding: var(--panel-pad);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .status-drone-icon {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .drone-silhouette {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drone-silhouette svg {
+      width: 44px;
+      height: 44px;
+      color: var(--cyan);
+      opacity: 0.7;
+    }
+
+    .drone-info-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 12px;
+    }
+
+    .drone-info-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .drone-info-value {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: right;
+    }
+
+    .drone-info-value.green {
+      color: var(--green);
+    }
+
+    .drone-info-value.amber {
+      color: var(--amber);
+    }
+
+    .drone-info-value.red {
+      color: var(--red);
+    }
+
+    /* Telemetry + Navigation sub-sections */
+    .telem-section-title {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .telem-section-title svg {
+      width: 12px;
+      height: 12px;
+      color: var(--cyan);
+    }
+
+    .telem-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 3px 10px;
+    }
+
+    .telem-key {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .telem-val {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-primary);
+      text-align: right;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DETECTION LOG PANEL (Bottom-Center)
+       ══════════════════════════════════════════════════════════════ */
+    .log-panel {
+      flex: 1;
+    }
+
+    .log-body {
+      padding: 6px var(--panel-pad);
+      overflow-y: auto;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .log-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 3px 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.4;
+      animation: log-fade-in 0.3s ease;
+    }
+
+    @keyframes log-fade-in {
+      from {
+        opacity: 0;
+        transform: translateX(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .log-time {
+      color: var(--text-dim);
+      font-weight: 500;
+      white-space: nowrap;
+      min-width: 70px;
+    }
+
+    .log-indicator {
+      width: 3px;
+      min-width: 3px;
+      height: 14px;
+      border-radius: 2px;
+      margin-top: 1px;
+    }
+
+    .log-indicator.green {
+      background: var(--green);
+      box-shadow: 0 0 4px var(--green-glow);
+    }
+
+    .log-indicator.amber {
+      background: var(--amber);
+    }
+
+    .log-indicator.red {
+      background: var(--red);
+      box-shadow: 0 0 4px var(--red-glow);
+    }
+
+    .log-indicator.cyan {
+      background: var(--cyan);
+      box-shadow: 0 0 4px var(--cyan-glow);
+    }
+
+    .log-text {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .log-text strong {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .log-text .highlight-green {
+      color: var(--green);
+    }
+
+    .log-text .highlight-amber {
+      color: var(--amber);
+    }
+
+    .log-text .highlight-red {
+      color: var(--red);
+    }
+
+    .log-text .highlight-cyan {
+      color: var(--cyan);
+    }
+
+    /* Timeline controls at bottom */
+    .timeline-controls {
+      height: 28px;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--panel-pad);
+      gap: 8px;
+      border-top: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .timeline-label {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .timeline-scrubber {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      position: relative;
+    }
+
+    .timeline-progress {
+      height: 100%;
+      background: var(--cyan);
+      border-radius: 2px;
+      width: 65%;
+      box-shadow: 0 0 6px var(--cyan-glow);
+    }
+
+    .timeline-time {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       RIGHT SIDEBAR — DRONE STATUS CARDS
+       ══════════════════════════════════════════════════════════════ */
+    .cards-sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .cards-header {
+      height: 30px;
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      padding: 0 var(--panel-pad);
+      gap: 8px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .cards-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .cards-count {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--cyan);
+      background: var(--cyan-dim);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    .cards-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Individual Drone Card */
+    .drone-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 8px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .drone-card:hover {
+      border-color: var(--border-accent);
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.08);
+    }
+
+    .drone-card-header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+
+    .drone-card-id {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+
+    .drone-card-status {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .drone-card-status.active {
+      background: var(--green-dim);
+      color: var(--green);
+    }
+
+    .drone-card-status.scanning {
+      background: var(--green-dim);
+      color: var(--green);
+    }
+
+    .drone-card-status.searching {
+      background: var(--amber-dim);
+      color: var(--amber);
+    }
+
+    .drone-card-status.waypoint {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+    }
+
+    .drone-card-status.rtb {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    .drone-card-status.landed {
+      background: rgba(100, 116, 139, 0.2);
+      color: var(--text-muted);
+    }
+
+    .drone-card-status.standby {
+      background: rgba(100, 116, 139, 0.2);
+      color: var(--text-muted);
+    }
+
+    .drone-card-status.perched {
+      background: rgba(139, 92, 246, 0.2);
+      color: #A78BFA;
+    }
+
+    .drone-card-status.armed {
+      background: var(--red-dim);
+      color: var(--red);
+    }
+
+    .drone-card-status.climbing {
+      background: var(--cyan-dim);
+      color: var(--cyan);
+    }
+
+    .card-field-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .card-field-value {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: right;
+    }
+
+    /* Battery bar */
+    .battery-row {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .battery-bar-bg {
+      flex: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .battery-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s ease, background 0.5s;
+    }
+
+    .battery-bar-fill.high {
+      background: var(--green);
+      box-shadow: 0 0 4px var(--green-glow);
+    }
+
+    .battery-bar-fill.mid {
+      background: var(--amber);
+    }
+
+    .battery-bar-fill.low {
+      background: var(--red);
+      box-shadow: 0 0 4px var(--red-glow);
+    }
+
+    .battery-pct {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      min-width: 28px;
+      text-align: right;
+    }
+
+    .battery-pct.high {
+      color: var(--green);
+    }
+
+    .battery-pct.mid {
+      color: var(--amber);
+    }
+
+    .battery-pct.low {
+      color: var(--red);
+    }
+
+    /* Alert icons row */
+    .card-icons-row {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+
+    .card-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-icon svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .card-icon.signal {
+      color: var(--green);
+    }
+
+    .card-icon.gps {
+      color: var(--cyan);
+    }
+
+    .card-icon.alert {
+      color: var(--amber);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       BOTTOM BAR PANELS
+       ══════════════════════════════════════════════════════════════ */
+    .bottom-panel {
+      flex: 1;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      padding: var(--panel-pad);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bottom-panel-title {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+      flex: 1;
+    }
+
+    .overview-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .overview-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .overview-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .overview-value.green {
+      color: var(--green);
+    }
+
+    .overview-value.amber {
+      color: var(--amber);
+    }
+
+    .overview-value.red {
+      color: var(--red);
+    }
+
+    .overview-value.cyan {
+      color: var(--cyan);
+    }
+
+    .overview-value.small {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Communication Hub */
+    .comms-log {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .comms-entry {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-secondary);
+      padding: 2px 0;
+      line-height: 1.4;
+    }
+
+    .comms-tag {
+      font-weight: 700;
+      margin-right: 4px;
+    }
+
+    .comms-tag.system {
+      color: var(--cyan);
+    }
+
+    .comms-tag.alert {
+      color: var(--red);
+    }
+
+    .comms-tag.drone {
+      color: var(--green);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SCANLINE EFFECT
+       ══════════════════════════════════════════════════════════════ */
+    .scanline::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 0%, rgba(0, 229, 255, 0.015) 50%, transparent 100%);
+      animation: scanline-move 5s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes scanline-move {
+      0% {
+        transform: translateY(-100%);
+      }
+
+      100% {
+        transform: translateY(100%);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       SWARM INSIGHTS OVERLAY (on 3D map)
+       ══════════════════════════════════════════════════════════════ */
+    .swarm-insights {
+      position: absolute;
+      bottom: 56px;
+      right: 170px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      z-index: 5;
+      min-width: 160px;
+    }
+
+    .insight-title {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .insight-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+
+    .insight-label {
+      font-size: 8px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .insight-value {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       UTILITY CLASSES
+       ══════════════════════════════════════════════════════════════ */
+    .mono {
+      font-family: var(--font-mono);
+    }
+
+    .text-cyan {
+      color: var(--cyan);
+    }
+
+    .text-green {
+      color: var(--green);
+    }
+
+    .text-amber {
+      color: var(--amber);
+    }
+
+    .text-red {
+      color: var(--red);
+    }
+
+    .glow-cyan {
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    .glow-green {
+      text-shadow: 0 0 8px var(--green-glow);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ════════════════════════════════════════════════════════════════
+       BOOT SCREEN
+       ════════════════════════════════════════════════════════════════ -->
+  <div id="boot-screen">
+    <div class="boot-content">
+      <div class="boot-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" />
+          <path d="M2 17l10 5 10-5" />
+          <path d="M2 12l10 5 10-5" />
+        </svg>
+        <div class="boot-ring"></div>
+      </div>
+      <div class="boot-title">TID<span>DA</span></div>
+      <div class="boot-subtitle">Tactical Intelligence Distributed Drone Architecture</div>
+      <button class="boot-btn" onclick="engageSystem()">
+        ▶ ENGAGE SYSTEM
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       MAIN APPLICATION
+       ════════════════════════════════════════════════════════════════ -->
+  <div id="app">
+    <!-- ── Header Bar ── -->
+    <div class="header-bar">
+      <div class="header-logo">
+        <div class="header-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+          </svg>
+        </div>
+        <div class="header-title">
+          <strong>TITAN DRONE CONTROL SYSTEM</strong> — OPERATOR: ABHINANDAN DIWEDI
+        </div>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-status">
+        <span class="status-dot connected" id="ws-status-dot"></span>
+        <span id="ws-status-text" style="color: var(--green);">CONNECTED</span>
+      </div>
+      <div class="header-clock" id="header-clock">00:00:00</div>
+    </div>
+
+    <!-- ── Main Body ── -->
+    <div class="main-body">
+      <!-- Left Icon Toolbar -->
+      <div class="icon-toolbar">
+        <button class="toolbar-btn active" title="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" title="Swarm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" title="Alerts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" title="Timeline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button class="toolbar-btn" title="Map">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </svg>
+        </button>
+        <div class="toolbar-spacer"></div>
+        <div class="toolbar-divider"></div>
+        <button class="toolbar-btn" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
+        <button class="toolbar-btn" title="Logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <!-- ── Top Row ── -->
+        <div class="top-row">
+          <!-- LIVE VIDEO FEED -->
+          <div class="panel video-panel scanline">
+            <div class="panel-header">
+              <div class="panel-title">Live <span class="accent">Tactical</span> Video Feed</div>
+              <div class="panel-actions">
+                <button class="panel-action-btn" title="Toggle Detections" onclick="toggleDetections()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="1" y="5" width="22" height="14" rx="2" />
+                    <path d="M12 9v6" />
+                    <path d="M9 12h6" />
+                  </svg>
+                </button>
+                <button class="panel-action-btn" title="Fullscreen">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="video-container" id="video-container">
+                <!-- Placeholder (shown when no feed) -->
+                <div class="video-placeholder" id="video-placeholder">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                  <span>Awaiting live feed…</span>
+                </div>
+                <!-- Live video image -->
+                <img id="live-video-img" alt="Live feed">
+                <!-- YOLO Detection overlay -->
+                <div class="detection-overlay" id="detection-overlay"></div>
+                <!-- HUD overlay -->
+                <div class="video-hud">
+                  <div class="hud-top-bar">
+                    <div class="hud-badge" id="hud-zoom">ZOOM: 1.0X</div>
+                    <div style="display:flex;gap:6px;">
+                      <div class="hud-badge" id="hud-alt">ALT: --</div>
+                      <div class="hud-badge" id="hud-gps">GPS: --</div>
+                      <div class="hud-badge" id="hud-bat">BAT: --%</div>
+                    </div>
+                  </div>
+                  <div class="hud-bottom-bar">
+                    <div class="hud-badge" id="hud-zoom-bottom">ZOOM: 3.2X</div>
+                    <div style="display:flex;gap:6px;">
+                      <div class="hud-badge" id="hud-alt-bottom">ALT: 110M</div>
+                      <div class="hud-badge" id="hud-gps-bottom">GPS: --</div>
+                      <div class="hud-badge" id="hud-bat-bottom">BAT: --%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3D POINT CLOUD MAP -->
+          <div class="panel map-panel">
+            <div class="panel-header">
+              <div class="panel-title">3D <span class="accent">Point Cloud</span> Map</div>
+              <div class="panel-actions">
+                <button class="panel-action-btn" title="Reset Camera" onclick="resetCamera()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10" />
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                  </svg>
+                </button>
+                <button class="panel-action-btn" title="Close">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="map-container" id="map-container">
+                <canvas id="three-canvas"></canvas>
+                <!-- Map Tools -->
+                <div class="map-tools">
+                  <button class="map-tool-btn" title="Zoom In" onclick="zoomIn()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <line x1="11" y1="8" x2="11" y2="14" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                  </button>
+                  <button class="map-tool-btn" title="Zoom Out" onclick="zoomOut()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                  </button>
+                  <button class="map-tool-btn" title="Toggle Grid" onclick="toggleGrid()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="3" y1="15" x2="21" y2="15" />
+                      <line x1="9" y1="3" x2="9" y2="21" />
+                      <line x1="15" y1="3" x2="15" y2="21" />
+                    </svg>
+                  </button>
+                  <button class="map-tool-btn" title="Drone View" onclick="toggleDroneView()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                      <path d="M2 17l10 5 10-5" />
+                      <path d="M2 12l10 5 10-5" />
+                    </svg>
+                  </button>
+                </div>
+                <!-- Layers Panel -->
+                <div class="layers-panel">
+                  <div class="layers-title">Layers</div>
+                  <div class="layer-item" onclick="toggleLayer('drones')">
+                    <div class="dot" style="background:var(--cyan)"></div>
+                    DRONE
+                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg></span>
+                  </div>
+                  <div class="layer-item" onclick="toggleLayer('assets')">
+                    <div class="dot" style="background:var(--green)"></div>
+                    ASSETS
+                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg></span>
+                  </div>
+                  <div class="layer-item" onclick="toggleLayer('alerts')">
+                    <div class="dot" style="background:var(--amber)"></div>
+                    ALERTS
+                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg></span>
+                  </div>
+                  <div class="layer-item" onclick="toggleLayer('mission')">
+                    <div class="dot" style="background:var(--red)"></div>
+                    MISSION CONTROLS
+                    <span class="layer-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg></span>
+                  </div>
+                  <div class="mission-controls">
+                    <button class="mission-btn" onclick="scanArea()">Scan Area</button>
+                    <button class="mission-btn" onclick="deployAll()">Deploy All</button>
+                  </div>
+                </div>
+                <!-- Swarm Insights -->
+                <div class="swarm-insights">
+                  <div class="insight-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                      style="width:12px;height:12px;color:var(--cyan)">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 16v-4" />
+                      <path d="M12 8h.01" />
+                    </svg>
+                    Swarm Insights
+                  </div>
+                  <div class="insight-row">
+                    <span class="insight-label">Mission Progress</span>
+                    <span class="insight-value text-cyan" id="insight-progress">--</span>
+                  </div>
+                  <div class="insight-row">
+                    <span class="insight-label">Data</span>
+                    <span class="insight-value text-green" id="insight-data">100%</span>
+                  </div>
+                </div>
+                <!-- Altitude Widget -->
+                <div class="altitude-widget">
+                  <div class="alt-label">Altitude</div>
+                  <div class="alt-graph" id="alt-graph-container">
+                    <canvas id="alt-graph-canvas"></canvas>
+                  </div>
+                  <div class="alt-label" id="alt-range-label">20 min</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT SIDEBAR — Drone Cards -->
+          <div class="cards-sidebar">
+            <div class="cards-header">
+              <div class="cards-title">Drone Status</div>
+              <div class="cards-count" id="drone-count">0</div>
+            </div>
+            <div class="cards-body" id="drone-cards-container">
+              <!-- Drone cards dynamically inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Bottom Row ── -->
+        <div class="bottom-row">
+          <!-- DRONE STATUS PANEL -->
+          <div class="panel status-panel">
+            <div class="panel-header">
+              <div class="panel-title">Drone <span class="accent">Status</span></div>
+              <div class="panel-actions">
+                <button class="panel-action-btn" title="Grid View">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="status-body" id="primary-drone-status">
+                <div class="status-drone-icon">
+                  <div class="drone-silhouette">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="32" cy="32" r="6" fill="currentColor" opacity="0.3" />
+                      <line x1="32" y1="26" x2="32" y2="12" />
+                      <line x1="32" y1="38" x2="32" y2="52" />
+                      <line x1="26" y1="32" x2="12" y2="32" />
+                      <line x1="38" y1="32" x2="52" y2="32" />
+                      <circle cx="12" cy="12" r="5" />
+                      <circle cx="52" cy="12" r="5" />
+                      <circle cx="12" cy="52" r="5" />
+                      <circle cx="52" cy="52" r="5" />
+                      <line x1="32" y1="12" x2="12" y2="12" />
+                      <line x1="32" y1="12" x2="52" y2="12" />
+                      <line x1="32" y1="52" x2="12" y2="52" />
+                      <line x1="32" y1="52" x2="52" y2="52" />
+                    </svg>
+                  </div>
+                  <div class="drone-info-grid">
+                    <span class="drone-info-label">STATUS</span>
+                    <span class="drone-info-value green" id="ds-status">SCANNING</span>
+                    <span class="drone-info-label">SIGNAL</span>
+                    <span class="drone-info-value" id="ds-signal">93%</span>
+                    <span class="drone-info-label">LOCK</span>
+                    <span class="drone-info-value" id="ds-lock">0.0A</span>
+                    <span class="drone-info-label">HEIGHT</span>
+                    <span class="drone-info-value" id="ds-height">0.0m</span>
+                  </div>
+                </div>
+                <!-- Telemetry Section -->
+                <div>
+                  <div class="telem-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    Telemetry
+                  </div>
+                  <div class="telem-grid">
+                    <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-zoom">110M</span>
+                    <span class="telem-key">GPS</span><span class="telem-val" id="ds-gps">--</span>
+                    <span class="telem-key">BAT</span><span class="telem-val" id="ds-bat">--%</span>
+                  </div>
+                </div>
+                <!-- Navigation Section -->
+                <div>
+                  <div class="telem-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                    </svg>
+                    Navigation
+                  </div>
+                  <div class="telem-grid">
+                    <span class="telem-key">ZOOM</span><span class="telem-val" id="ds-nav-zoom">3.2X</span>
+                    <span class="telem-key">ALT</span><span class="telem-val" id="ds-nav-alt">--</span>
+                    <span class="telem-key">BAT</span><span class="telem-val" id="ds-nav-bat">--%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DETECTION LOG -->
+          <div class="panel log-panel">
+            <div class="panel-header">
+              <div class="panel-title">Detection <span class="accent">Log</span></div>
+              <div class="panel-actions">
+                <button class="panel-action-btn" title="Clear Log" onclick="clearDetectionLog()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+                <button class="panel-action-btn" title="Auto-scroll" id="autoscroll-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <polyline points="19 12 12 19 5 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="log-body" id="detection-log">
+                <!-- Log entries dynamically inserted -->
+              </div>
+            </div>
+            <div class="timeline-controls">
+              <span class="timeline-label">Timeline</span>
+              <div class="timeline-scrubber">
+                <div class="timeline-progress"></div>
+              </div>
+              <span class="timeline-time" id="timeline-elapsed">00:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Bottom Bar ── -->
+        <div class="bottom-bar">
+          <!-- System Overview -->
+          <div class="bottom-panel">
+            <div class="bottom-panel-title">System Overview</div>
+            <div class="overview-grid">
+              <div class="overview-item">
+                <span class="overview-label">Total Drones</span>
+                <span class="overview-value cyan" id="ov-total">0</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Battery Low</span>
+                <span class="overview-value red" id="ov-bat-low">0</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Active</span>
+                <span class="overview-value green" id="ov-active">0</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">System Health</span>
+                <span class="overview-value small green" id="ov-health">EXCELLENT</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Swarm Intelligence -->
+          <div class="bottom-panel">
+            <div class="bottom-panel-title">Swarm Intelligence</div>
+            <div class="overview-grid">
+              <div class="overview-item">
+                <span class="overview-label">Mission Progress</span>
+                <span class="overview-value small cyan" id="si-mission">--</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Data Integration</span>
+                <span class="overview-value small green" id="si-data">100%</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Anomaly Detected</span>
+                <span class="overview-value" id="si-anomaly">0</span>
+              </div>
+              <div class="overview-item">
+                <span class="overview-label">Uptime</span>
+                <span class="overview-value small" id="si-uptime">00:00:00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Communication Hub -->
+          <div class="bottom-panel">
+            <div class="bottom-panel-title">Communication Hub</div>
+            <div class="comms-log" id="comms-log">
+              <!-- Comms entries dynamically inserted -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       JAVASCRIPT ENGINE
+       ════════════════════════════════════════════════════════════════ -->
+  <script>
+    /* ══════════════════════════════════════════════════════════════
+       STATE
+       ══════════════════════════════════════════════════════════════ */
+    const STATE = {
+      ws: null,
+      connected: false,
+      drones: {},               // drone_id → telemetry object
+      selectedDrone: null,      // currently focused drone_id
+      uptimeSec: 0,
+      detectionCount: 0,
+      anomalyCount: 0,
+      batteryLowCount: 0,
+      detectionsVisible: true,
+      autoScroll: true,
+      logEntries: 0,
+      MAX_LOG_ENTRIES: 150,
+      altHistory: [],           // altitude history for graph
+      droneColors: {},
+      colorPalette: ['#00E5FF', '#39FF14', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#A78BFA', '#FB923C'],
+      colorIdx: 0,
+    };
+
+    /* ══════════════════════════════════════════════════════════════
+       BOOT
+       ══════════════════════════════════════════════════════════════ */
+    function engageSystem() {
+      const boot = document.getElementById('boot-screen');
+      const app = document.getElementById('app');
+      boot.classList.add('hidden');
+      setTimeout(() => {
+        boot.style.display = 'none';
+        app.classList.add('visible');
+        initThreeJS();
+        connectWebSocket();
+        startClocks();
+        addDetectionLog('cyan', 'SYSTEM', 'Ground Control Station initialized');
+        addDetectionLog('cyan', 'SYSTEM', 'Waiting for C2 server connection…');
+        addCommsEntry('system', '[SYSTEM] GCS Boot sequence complete');
+      }, 800);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       CLOCK & TIMERS
+       ══════════════════════════════════════════════════════════════ */
+    function startClocks() {
+      // Header clock
+      setInterval(() => {
+        const now = new Date();
+        document.getElementById('header-clock').textContent =
+          now.toLocaleTimeString('en-GB', { hour12: false });
+      }, 1000);
+
+      // Uptime counter
+      setInterval(() => {
+        STATE.uptimeSec++;
+        const h = String(Math.floor(STATE.uptimeSec / 3600)).padStart(2, '0');
+        const m = String(Math.floor((STATE.uptimeSec % 3600) / 60)).padStart(2, '0');
+        const s = String(STATE.uptimeSec % 60).padStart(2, '0');
+        document.getElementById('si-uptime').textContent = `${h}:${m}:${s}`;
+
+        const mm = String(Math.floor(STATE.uptimeSec / 60)).padStart(2, '0');
+        const ss = String(STATE.uptimeSec % 60).padStart(2, '0');
+        document.getElementById('timeline-elapsed').textContent = `${mm}:${ss}`;
+      }, 1000);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       WEBSOCKET CONNECTION
+       ══════════════════════════════════════════════════════════════ */
+    function connectWebSocket() {
+      const wsUrl = 'ws://localhost:8000/ws/ui';
+      try {
+        STATE.ws = new WebSocket(wsUrl);
+      } catch (e) {
+        setConnectionStatus(false);
+        setTimeout(connectWebSocket, 3000);
+        return;
+      }
+
+      STATE.ws.onopen = () => {
+        STATE.connected = true;
+        setConnectionStatus(true);
+        addDetectionLog('green', 'SYSTEM', 'C2 WebSocket <strong>LIVE</strong> — telemetry streaming');
+        addCommsEntry('system', '[SYSTEM] C2 link established');
+
+        // Request initial states
+        STATE.ws.send(JSON.stringify({ type: 'world_state' }));
+        STATE.ws.send(JSON.stringify({ type: 'scan_state' }));
+
+        // Periodic world state polling
+        setInterval(() => {
+          if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
+            STATE.ws.send(JSON.stringify({ type: 'world_state' }));
+          }
+        }, 3000);
+      };
+
+      STATE.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          handleMessage(data);
+        } catch (e) {
+          // Ignore malformed messages
+        }
+      };
+
+      STATE.ws.onclose = () => {
+        STATE.connected = false;
+        setConnectionStatus(false);
+        addDetectionLog('red', 'SYSTEM', 'C2 link <strong>LOST</strong> — reconnecting…');
+        addCommsEntry('alert', '[ALERT] C2 link lost');
+        setTimeout(connectWebSocket, 3000);
+      };
+
+      STATE.ws.onerror = () => {
+        STATE.connected = false;
+        setConnectionStatus(false);
+      };
+    }
+
+    function setConnectionStatus(connected) {
+      const dot = document.getElementById('ws-status-dot');
+      const text = document.getElementById('ws-status-text');
+      if (connected) {
+        dot.className = 'status-dot connected';
+        text.textContent = 'CONNECTED';
+        text.style.color = 'var(--green)';
+      } else {
+        dot.className = 'status-dot disconnected';
+        text.textContent = 'DISCONNECTED';
+        text.style.color = 'var(--red)';
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MESSAGE HANDLER — Routes all WS messages
+       ══════════════════════════════════════════════════════════════ */
+    function handleMessage(data) {
+      // ── Drone telemetry (most common) ──
+      if (data.drone_id && data.battery_pct !== undefined) {
+        handleTelemetry(data);
+        return;
+      }
+
+      // ── Gotham alerts ──
+      if (data.type === 'gotham_alert') {
+        handleGothamAlert(data);
+        return;
+      }
+
+      // ── Sentry alerts (person detection) ──
+      if (data.type === 'sentry_alert') {
+        handleSentryAlert(data);
+        return;
+      }
+
+      // ── Fusion alerts ──
+      if (data.type === 'fusion_alert') {
+        handleFusionAlert(data);
+        return;
+      }
+
+      // ── Live video frame ──
+      if (data.type === 'live_frame') {
+        handleLiveFrame(data);
+        return;
+      }
+
+      // ── Coverage grid update ──
+      if (data.type === 'grid_update') {
+        // Grid visualization handled in 3D scene
+        return;
+      }
+
+      // ── Node offline ──
+      if (data.type === 'node_offline') {
+        addDetectionLog('red', 'NODE', `${data.drone_id} went <strong>OFFLINE</strong>`);
+        addCommsEntry('alert', `[ALERT] ${data.drone_id} disconnected`);
+        return;
+      }
+
+      // ── AI response ──
+      if (data.type === 'ai_response') {
+        addCommsEntry('system', `[AI] ${data.text}`);
+        return;
+      }
+
+      // ── World state ──
+      if (data.type === 'world_state') {
+        handleWorldState(data);
+        return;
+      }
+
+      // ── Weapon telemetry ──
+      if (data.weapon_id) {
+        return; // Weapon telemetry — future use
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       TELEMETRY HANDLER
+       ══════════════════════════════════════════════════════════════ */
+    function handleTelemetry(data) {
+      const id = data.drone_id;
+      const isNew = !STATE.drones[id];
+      STATE.drones[id] = data;
+
+      // Assign color
+      if (!STATE.droneColors[id]) {
+        STATE.droneColors[id] = STATE.colorPalette[STATE.colorIdx % STATE.colorPalette.length];
+        STATE.colorIdx++;
+      }
+
+      // Update or create drone card
+      updateDroneCard(id, data);
+
+      // Update 3D position
+      updateDrone3D(id, data);
+
+      // Update primary drone status (first drone or selected)
+      if (!STATE.selectedDrone || STATE.selectedDrone === id) {
+        if (!STATE.selectedDrone) STATE.selectedDrone = id;
+        updatePrimaryStatus(data);
+      }
+
+      // Update overview counts
+      updateOverview();
+
+      // Track altitude history
+      if (id === STATE.selectedDrone) {
+        STATE.altHistory.push(data.altitude_m || 0);
+        if (STATE.altHistory.length > 60) STATE.altHistory.shift();
+        drawAltitudeGraph();
+      }
+
+      if (isNew) {
+        addDetectionLog('green', 'SYSTEM', `Drone <strong>${id}</strong> online — telemetry linked`);
+        addCommsEntry('drone', `[${id}] Data link established`);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DRONE CARD MANAGEMENT
+       ══════════════════════════════════════════════════════════════ */
+    function updateDroneCard(id, data) {
+      let card = document.getElementById(`card-${id}`);
+      if (!card) {
+        card = createDroneCard(id);
+      }
+
+      const statusClass = getStatusClass(data.status);
+      const batLevel = data.battery_pct > 50 ? 'high' : (data.battery_pct > 20 ? 'mid' : 'low');
+
+      card.querySelector('.drone-card-status').className = `drone-card-status ${statusClass}`;
+      card.querySelector('.drone-card-status').textContent = data.status;
+      card.querySelector('.bat-fill').style.width = `${data.battery_pct}%`;
+      card.querySelector('.bat-fill').className = `battery-bar-fill bat-fill ${batLevel}`;
+      card.querySelector('.bat-pct').className = `battery-pct bat-pct ${batLevel}`;
+      card.querySelector('.bat-pct').textContent = `${Math.round(data.battery_pct)}%`;
+      card.querySelector('.card-alt').textContent = `${(data.altitude_m || 0).toFixed(1)}m`;
+      card.querySelector('.card-speed').textContent = `${(data.speed || 0).toFixed(1)} m/s`;
+      card.querySelector('.card-mission').textContent = data.status === 'SCANNING' ? 'PATROL' :
+        (data.status === 'WAYPOINT' ? 'WAYPOINT' : data.status);
+
+      // Update drone count
+      document.getElementById('drone-count').textContent = Object.keys(STATE.drones).length;
+    }
+
+    function createDroneCard(id) {
+      const container = document.getElementById('drone-cards-container');
+      const card = document.createElement('div');
+      card.className = 'drone-card';
+      card.id = `card-${id}`;
+      card.onclick = () => selectDrone(id);
+      card.innerHTML = `
+        <div class="drone-card-header">
+          <span class="drone-card-id">${id}</span>
+          <span class="drone-card-status standby">STANDBY</span>
+        </div>
+        <span class="card-field-label">ALTITUDE</span>
+        <span class="card-field-value card-alt">0.0m</span>
+        <span class="card-field-label">SPEED</span>
+        <span class="card-field-value card-speed">0.0 m/s</span>
+        <span class="card-field-label">MISSION</span>
+        <span class="card-field-value card-mission">--</span>
+        <div class="battery-row">
+          <div class="battery-bar-bg">
+            <div class="battery-bar-fill bat-fill high" style="width:100%"></div>
+          </div>
+          <span class="battery-pct bat-pct high">100%</span>
+        </div>
+        <div class="card-icons-row">
+          <span class="card-icon signal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span>
+          <span class="card-icon gps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg></span>
+        </div>
+      `;
+      container.appendChild(card);
+      return card;
+    }
+
+    function selectDrone(id) {
+      STATE.selectedDrone = id;
+      STATE.altHistory = [];
+      // Highlight selected card
+      document.querySelectorAll('.drone-card').forEach(c => {
+        c.style.borderColor = '';
+        c.style.boxShadow = '';
+      });
+      const card = document.getElementById(`card-${id}`);
+      if (card) {
+        card.style.borderColor = 'var(--cyan)';
+        card.style.boxShadow = '0 0 16px rgba(0, 229, 255, 0.15)';
+      }
+      if (STATE.drones[id]) {
+        updatePrimaryStatus(STATE.drones[id]);
+      }
+    }
+
+    function getStatusClass(status) {
+      const map = {
+        'SCANNING': 'scanning', 'CLIMBING': 'climbing', 'WAYPOINT': 'waypoint',
+        'RTB': 'rtb', 'LANDED': 'landed', 'STANDBY': 'standby',
+        'PERCHED': 'perched', 'ARMED': 'armed',
+      };
+      return map[status] || 'active';
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       PRIMARY DRONE STATUS PANEL
+       ══════════════════════════════════════════════════════════════ */
+    function updatePrimaryStatus(data) {
+      const statusEl = document.getElementById('ds-status');
+      statusEl.textContent = data.status;
+      statusEl.className = 'drone-info-value ' + (
+        data.status === 'SCANNING' ? 'green' :
+          data.status === 'RTB' ? 'red' :
+            data.status === 'WAYPOINT' ? '' : 'green'
+      );
+
+      document.getElementById('ds-signal').textContent = `${Math.round(70 + Math.random() * 25)}%`;
+      document.getElementById('ds-height').textContent = `${(data.altitude_m || 0).toFixed(1)}m`;
+
+      const lat = (data.lat || 0).toFixed(4);
+      const lng = (data.lng || 0).toFixed(4);
+      document.getElementById('ds-gps').textContent = `${lat}°N ${lng}°E`;
+      document.getElementById('ds-bat').textContent = `${Math.round(data.battery_pct)}%`;
+      document.getElementById('ds-nav-alt').textContent = `${(data.altitude_m || 0).toFixed(0)}M`;
+      document.getElementById('ds-nav-bat').textContent = `${Math.round(data.battery_pct)}%`;
+
+      // Update video HUD
+      document.getElementById('hud-alt').textContent = `ALT: ${(data.altitude_m || 0).toFixed(0)}M`;
+      document.getElementById('hud-gps').textContent = `GPS: ${lat}°N ${lng}°E`;
+      document.getElementById('hud-bat').textContent = `BAT: ${Math.round(data.battery_pct)}%`;
+      document.getElementById('hud-alt-bottom').textContent = `ALT: ${(data.altitude_m || 0).toFixed(0)}M`;
+      document.getElementById('hud-gps-bottom').textContent = `OPS: ${lat}°N ${lng}°E`;
+      document.getElementById('hud-bat-bottom').textContent = `BAT: ${Math.round(data.battery_pct)}%`;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       OVERVIEW / SWARM INTELLIGENCE
+       ══════════════════════════════════════════════════════════════ */
+    function updateOverview() {
+      const drones = Object.values(STATE.drones);
+      const total = drones.length;
+      const active = drones.filter(d => !['LANDED', 'STANDBY'].includes(d.status)).length;
+      const batLow = drones.filter(d => d.battery_pct < 25).length;
+
+      document.getElementById('ov-total').textContent = total;
+      document.getElementById('ov-active').textContent = active;
+      document.getElementById('ov-bat-low').textContent = batLow;
+      STATE.batteryLowCount = batLow;
+
+      const health = batLow === 0 ? 'EXCELLENT' : (batLow <= 2 ? 'GOOD' : 'DEGRADED');
+      const healthEl = document.getElementById('ov-health');
+      healthEl.textContent = health;
+      healthEl.className = 'overview-value small ' + (health === 'EXCELLENT' ? 'green' : (health === 'GOOD' ? 'amber' : 'red'));
+
+      // Swarm intelligence
+      const progress = active > 0 ? `${Math.round((active / total) * 100)}% ACTIVE` : 'IDLE';
+      document.getElementById('si-mission').textContent = progress;
+      document.getElementById('insight-progress').textContent = progress;
+      document.getElementById('si-anomaly').textContent = STATE.anomalyCount;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ALERT HANDLERS
+       ══════════════════════════════════════════════════════════════ */
+    function handleGothamAlert(data) {
+      if (data.alert === 'PREEMPTIVE_RTL') {
+        addDetectionLog('red', 'GOTHAM',
+          `⚠ PREEMPTIVE RTL: <strong>${data.drone_id}</strong> — endurance=${data.endurance_s?.toFixed(0)}s < required=${data.required_s?.toFixed(0)}s`);
+        addCommsEntry('alert', `[ALERT] ${data.drone_id} forced RTL — battery critical`);
+        STATE.anomalyCount++;
+      } else if (data.alert === 'COLLISION_EVADE') {
+        addDetectionLog('amber', 'GOTHAM',
+          `🔴 COLLISION EVADE: <strong>${data.drone_a}</strong> ↔ <strong>${data.drone_b}</strong> — sep=${data.separation_m?.toFixed(1)}m`);
+        addCommsEntry('alert', `[ALERT] Near-miss: ${data.drone_a} ↔ ${data.drone_b}`);
+        STATE.anomalyCount++;
+      }
+      document.getElementById('si-anomaly').textContent = STATE.anomalyCount;
+    }
+
+    function handleSentryAlert(data) {
+      STATE.detectionCount++;
+      const conf = ((data.confidence || 0) * 100).toFixed(0);
+      addDetectionLog('red', 'SENTRY',
+        `🚨 PERSON DETECTED by <strong class="highlight-cyan">${data.node_id}</strong> — CONF: <strong class="highlight-amber">${conf}%</strong> COUNT: ${data.person_count}`);
+      addDetectionLog('amber', 'TRACKING', `TRACKING ID: <strong class="highlight-cyan">P${STATE.detectionCount}</strong>`);
+
+      // Show detection overlay on video
+      showDetectionOverlay(data);
+
+      addCommsEntry('alert', `[SENTRY] Person detected by ${data.node_id} (${conf}%)`);
+    }
+
+    function handleFusionAlert(data) {
+      const entity = data.entity || {};
+      const action = entity.action || data.action || 'UPDATE';
+      addDetectionLog('cyan', 'FUSION',
+        `${action.toUpperCase()} Entity <strong class="highlight-cyan">${entity.entity_id || '?'}</strong> — class=${entity.class_name || '?'} conf=${((entity.confidence || 0) * 100).toFixed(0)}%`);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       LIVE VIDEO FRAME HANDLER
+       ══════════════════════════════════════════════════════════════ */
+    function handleLiveFrame(data) {
+      const img = document.getElementById('live-video-img');
+      const placeholder = document.getElementById('video-placeholder');
+      if (placeholder) placeholder.style.display = 'none';
+      img.style.display = 'block';
+      img.src = 'data:image/jpeg;base64,' + data.frame;
+    }
+
+    function showDetectionOverlay(data) {
+      if (!STATE.detectionsVisible) return;
+      const overlay = document.getElementById('detection-overlay');
+
+      // Create simulated detection boxes
+      const count = data.person_count || 1;
+      const conf = ((data.confidence || 0) * 100).toFixed(0);
+
+      // Clear old after a delay
+      setTimeout(() => {
+        overlay.innerHTML = '';
+      }, 4000);
+
+      overlay.innerHTML = '';
+      for (let i = 0; i < Math.min(count, 5); i++) {
+        const box = document.createElement('div');
+        box.className = 'detection-box';
+        // Random positions within the video frame
+        const x = 15 + Math.random() * 55;
+        const y = 20 + Math.random() * 40;
+        const w = 8 + Math.random() * 10;
+        const h = 15 + Math.random() * 20;
+        box.style.cssText = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
+
+        const label = document.createElement('div');
+        const labels = ['OBJECT DETECTED', `PERSON (CONF: ${conf}%)`, `TRACKING ID: P${STATE.detectionCount}`];
+        label.className = `detection-label ${i === 0 ? '' : 'person'}`;
+        label.textContent = labels[i % labels.length];
+        box.appendChild(label);
+
+        overlay.appendChild(box);
+      }
+    }
+
+    function toggleDetections() {
+      STATE.detectionsVisible = !STATE.detectionsVisible;
+      document.getElementById('detection-overlay').style.display =
+        STATE.detectionsVisible ? 'block' : 'none';
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       WORLD STATE HANDLER
+       ══════════════════════════════════════════════════════════════ */
+    function handleWorldState(data) {
+      // Update swarm insights with building data if available
+      if (data.floors) {
+        const floorCount = Object.keys(data.floors).length;
+        document.getElementById('insight-progress').textContent =
+          floorCount > 0 ? `${floorCount} FLOORS MAPPED` : 'SCANNING';
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DETECTION LOG
+       ══════════════════════════════════════════════════════════════ */
+    function addDetectionLog(color, tag, text) {
+      const log = document.getElementById('detection-log');
+      if (STATE.logEntries >= STATE.MAX_LOG_ENTRIES) {
+        const first = log.firstChild;
+        if (first) log.removeChild(first);
+      }
+
+      const now = new Date();
+      const ts = now.toLocaleTimeString('en-GB', { hour12: false }) + '.' +
+        String(now.getMilliseconds()).padStart(3, '0');
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <span class="log-time">${ts}</span>
+        <div class="log-indicator ${color}"></div>
+        <span class="log-text">${text}</span>
+      `;
+      log.appendChild(entry);
+      STATE.logEntries++;
+
+      if (STATE.autoScroll) {
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+
+    function clearDetectionLog() {
+      document.getElementById('detection-log').innerHTML = '';
+      STATE.logEntries = 0;
+      addDetectionLog('cyan', 'SYSTEM', 'Detection log cleared');
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       COMMUNICATION HUB
+       ══════════════════════════════════════════════════════════════ */
+    function addCommsEntry(type, text) {
+      const log = document.getElementById('comms-log');
+      if (log.children.length > 50) {
+        log.removeChild(log.firstChild);
+      }
+      const entry = document.createElement('div');
+      entry.className = 'comms-entry';
+      entry.innerHTML = text.replace(/\[(.*?)\]/, (_, tag) => {
+        const cls = tag.includes('ALERT') ? 'alert' :
+          tag.includes('SYSTEM') || tag.includes('AI') ? 'system' : 'drone';
+        return `<span class="comms-tag ${cls}">[${tag}]</span>`;
+      });
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ALTITUDE GRAPH
+       ══════════════════════════════════════════════════════════════ */
+    function drawAltitudeGraph() {
+      const canvas = document.getElementById('alt-graph-canvas');
+      if (!canvas) return;
+      const container = document.getElementById('alt-graph-container');
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (STATE.altHistory.length < 2) return;
+
+      const max = Math.max(...STATE.altHistory, 20);
+      const step = w / (STATE.altHistory.length - 1);
+
+      // Gradient fill
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, 'rgba(0, 229, 255, 0.3)');
+      gradient.addColorStop(1, 'rgba(0, 229, 255, 0.02)');
+
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let i = 0; i < STATE.altHistory.length; i++) {
+        const x = i * step;
+        const y = h - (STATE.altHistory[i] / max) * h;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      for (let i = 0; i < STATE.altHistory.length; i++) {
+        const x = i * step;
+        const y = h - (STATE.altHistory[i] / max) * h;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#00E5FF';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       THREE.JS 3D SCENE
+       ══════════════════════════════════════════════════════════════ */
+    let scene, camera, renderer, controls;
+    let droneModels = {};
+    let buildingGroup, gridHelper;
+    let gridVisible = true;
+
+    function initThreeJS() {
+      const container = document.getElementById('map-container');
+      const canvas = document.getElementById('three-canvas');
+
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0B0E14);
+      scene.fog = new THREE.FogExp2(0x0B0E14, 0.008);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(40, 30, 40);
+      camera.lookAt(0, 5, 0);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+
+      // Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 10;
+      controls.maxDistance = 150;
+      controls.maxPolarAngle = Math.PI / 2.1;
+      controls.target.set(0, 5, 0);
+
+      // Lighting
+      const ambient = new THREE.AmbientLight(0x334466, 0.4);
+      scene.add(ambient);
+
+      const directional = new THREE.DirectionalLight(0x6688aa, 0.6);
+      directional.position.set(20, 40, 20);
+      scene.add(directional);
+
+      const pointLight = new THREE.PointLight(0x00E5FF, 0.5, 80);
+      pointLight.position.set(0, 20, 0);
+      scene.add(pointLight);
+
+      // Ground grid
+      gridHelper = new THREE.GridHelper(80, 40, 0x1a2a3a, 0x111e2e);
+      scene.add(gridHelper);
+
+      // Build tactical building
+      createTacticalBuilding();
+
+      // Create point cloud particles
+      createPointCloud();
+
+      // Handle resize
+      window.addEventListener('resize', onResize);
+
+      // Animation loop
+      animate();
+    }
+
+    function createTacticalBuilding() {
+      buildingGroup = new THREE.Group();
+
+      // Building floors (wireframe boxes stacked)
+      const floors = [
+        { y: 0, h: 3, label: 'B1', color: 0x1a3a2a },
+        { y: 3, h: 3, label: 'F1', color: 0x1a2a3a },
+        { y: 6, h: 3, label: 'F2', color: 0x1a2a3a },
+        { y: 9, h: 3, label: 'F3', color: 0x1a2a3a },
+        { y: 12, h: 3, label: 'F4', color: 0x1a2a3a },
+      ];
+
+      floors.forEach((floor, idx) => {
+        // Wireframe box
+        const geo = new THREE.BoxGeometry(20, floor.h, 15);
+        const edges = new THREE.EdgesGeometry(geo);
+        const mat = new THREE.LineBasicMaterial({
+          color: 0x00E5FF,
+          opacity: 0.2 + idx * 0.05,
+          transparent: true,
+        });
+        const wireframe = new THREE.LineSegments(edges, mat);
+        wireframe.position.set(0, floor.y + floor.h / 2, 0);
+        buildingGroup.add(wireframe);
+
+        // Semi-transparent floor plane
+        const planeMat = new THREE.MeshBasicMaterial({
+          color: floor.color,
+          transparent: true,
+          opacity: 0.15,
+          side: THREE.DoubleSide,
+        });
+        const planeGeo = new THREE.PlaneGeometry(20, 15);
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.set(0, floor.y, 0);
+        buildingGroup.add(plane);
+
+        // Floor label
+        const labelCanvas = document.createElement('canvas');
+        labelCanvas.width = 64;
+        labelCanvas.height = 32;
+        const lctx = labelCanvas.getContext('2d');
+        lctx.fillStyle = '#00E5FF';
+        lctx.font = 'bold 20px Inter, sans-serif';
+        lctx.textAlign = 'center';
+        lctx.fillText(floor.label, 32, 22);
+        const labelTexture = new THREE.CanvasTexture(labelCanvas);
+        const labelMat = new THREE.SpriteMaterial({ map: labelTexture, transparent: true, opacity: 0.7 });
+        const labelSprite = new THREE.Sprite(labelMat);
+        labelSprite.position.set(-12, floor.y + floor.h / 2, 0);
+        labelSprite.scale.set(3, 1.5, 1);
+        buildingGroup.add(labelSprite);
+      });
+
+      // Internal structure lines (corridors, walls)
+      const internalMat = new THREE.LineBasicMaterial({ color: 0x00E5FF, opacity: 0.08, transparent: true });
+      for (let i = 0; i < 8; i++) {
+        const geo = new THREE.BufferGeometry();
+        const x1 = -10 + Math.random() * 20;
+        const z1 = -7.5 + Math.random() * 15;
+        const x2 = -10 + Math.random() * 20;
+        const z2 = -7.5 + Math.random() * 15;
+        const y = 3 + Math.floor(Math.random() * 4) * 3;
+        const positions = new Float32Array([x1, y, z1, x2, y, z2]);
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const line = new THREE.Line(geo, internalMat);
+        buildingGroup.add(line);
+      }
+
+      scene.add(buildingGroup);
+    }
+
+    function createPointCloud() {
+      // Scattered point cloud around building (tactical scan effect)
+      const count = 5000;
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+
+      const cyanColor = new THREE.Color(0x00E5FF);
+      const greenColor = new THREE.Color(0x39FF14);
+      const dimColor = new THREE.Color(0x334455);
+
+      for (let i = 0; i < count; i++) {
+        // Points around the building
+        const radius = 2 + Math.random() * 25;
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * radius + (Math.random() - 0.5) * 5;
+        const z = Math.sin(angle) * radius + (Math.random() - 0.5) * 5;
+        const y = Math.random() * 18;
+
+        // More concentrated near building
+        const isNearBuilding = Math.abs(x) < 12 && Math.abs(z) < 9;
+
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+
+        const color = isNearBuilding ?
+          (Math.random() > 0.6 ? greenColor : cyanColor) : dimColor;
+        const intensity = isNearBuilding ? 0.4 + Math.random() * 0.6 : 0.1 + Math.random() * 0.2;
+
+        colors[i * 3] = color.r * intensity;
+        colors[i * 3 + 1] = color.g * intensity;
+        colors[i * 3 + 2] = color.b * intensity;
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: 0.15,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        sizeAttenuation: true,
+      });
+
+      const cloud = new THREE.Points(geo, mat);
+      scene.add(cloud);
+    }
+
+    function createDroneModel(id) {
+      const group = new THREE.Group();
+
+      // Drone body
+      const bodyGeo = new THREE.OctahedronGeometry(0.4, 0);
+      const color = new THREE.Color(STATE.droneColors[id] || '#00E5FF');
+      const bodyMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.scale.set(1, 0.5, 1);
+      group.add(body);
+
+      // Glow ring
+      const ringGeo = new THREE.RingGeometry(0.6, 0.8, 16);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      group.add(ring);
+
+      // Arms (4 lines radiating out)
+      const armMat = new THREE.LineBasicMaterial({ color, opacity: 0.5, transparent: true });
+      const armLen = 0.8;
+      [0, Math.PI / 2, Math.PI, Math.PI * 1.5].forEach(angle => {
+        const armGeo = new THREE.BufferGeometry();
+        const positions = new Float32Array([
+          0, 0, 0,
+          Math.cos(angle) * armLen, 0, Math.sin(angle) * armLen
+        ]);
+        armGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        group.add(new THREE.Line(armGeo, armMat));
+      });
+
+      // Label
+      const labelCanvas = document.createElement('canvas');
+      labelCanvas.width = 128;
+      labelCanvas.height = 32;
+      const ctx = labelCanvas.getContext('2d');
+      ctx.fillStyle = color.getStyle();
+      ctx.font = 'bold 16px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(id, 64, 20);
+      const labelTexture = new THREE.CanvasTexture(labelCanvas);
+      const labelMat = new THREE.SpriteMaterial({ map: labelTexture, transparent: true });
+      const labelSprite = new THREE.Sprite(labelMat);
+      labelSprite.position.set(0, 1.5, 0);
+      labelSprite.scale.set(4, 1, 1);
+      group.add(labelSprite);
+
+      group.position.set(
+        (Math.random() - 0.5) * 30,
+        10 + Math.random() * 8,
+        (Math.random() - 0.5) * 30
+      );
+
+      scene.add(group);
+      droneModels[id] = group;
+      return group;
+    }
+
+    function updateDrone3D(id, data) {
+      if (!scene) return;
+      let model = droneModels[id];
+      if (!model) {
+        model = createDroneModel(id);
+      }
+
+      // Convert lat/lng to scene coords (centered on HOME position)
+      const HOME_LAT = -35.3633;
+      const HOME_LON = 149.1652;
+      const SCALE = 10000; // degrees to scene units
+
+      const x = (data.lng - HOME_LON) * SCALE;
+      const z = -(data.lat - HOME_LAT) * SCALE;
+      const y = (data.altitude_m || 0) * 0.5 + 0.5; // Scale altitude
+
+      // Smooth interpolation
+      model.position.lerp(new THREE.Vector3(x, y, z), 0.1);
+
+      // Rotate glow ring
+      if (model.children[1]) {
+        model.children[1].rotation.z += 0.02;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      // Subtle building rotation
+      if (buildingGroup) {
+        // Pulse the point cloud slightly
+      }
+
+      // Pulse drone glow rings
+      Object.values(droneModels).forEach(model => {
+        if (model.children[1]) {
+          model.children[1].rotation.z += 0.015;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    function onResize() {
+      const container = document.getElementById('map-container');
+      if (!container || !camera || !renderer) return;
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function resetCamera() {
+      if (camera && controls) {
+        camera.position.set(40, 30, 40);
+        controls.target.set(0, 5, 0);
+        controls.update();
+      }
+    }
+
+    function zoomIn() {
+      if (camera) {
+        camera.position.multiplyScalar(0.85);
+        controls.update();
+      }
+    }
+
+    function zoomOut() {
+      if (camera) {
+        camera.position.multiplyScalar(1.15);
+        controls.update();
+      }
+    }
+
+    function toggleGrid() {
+      if (gridHelper) {
+        gridVisible = !gridVisible;
+        gridHelper.visible = gridVisible;
+      }
+    }
+
+    function toggleDroneView() {
+      if (STATE.selectedDrone && droneModels[STATE.selectedDrone]) {
+        const pos = droneModels[STATE.selectedDrone].position;
+        camera.position.set(pos.x + 10, pos.y + 8, pos.z + 10);
+        controls.target.copy(pos);
+        controls.update();
+      }
+    }
+
+    function toggleLayer(layer) {
+      // Toggle layer visibility
+      if (layer === 'drones') {
+        Object.values(droneModels).forEach(m => m.visible = !m.visible);
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       COMMAND SENDERS
+       ══════════════════════════════════════════════════════════════ */
+    function sendCommand(action, payload = {}) {
+      if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
+        STATE.ws.send(JSON.stringify({
+          type: 'command',
+          action,
+          ...payload,
+        }));
+        addDetectionLog('cyan', 'CMD', `Command sent: <strong>${action}</strong>`);
+      }
+    }
+
+    function scanArea() {
+      sendCommand('scan_area');
+      addCommsEntry('system', '[SYSTEM] Commencing area scan');
+    }
+
+    function deployAll() {
+      // Wake all perched drones
+      Object.keys(STATE.drones).forEach(id => {
+        if (STATE.drones[id].status === 'PERCHED') {
+          sendCommand('wake_drone', { target_unit: id, trigger: 'MANUAL_CALLOUT' });
+        }
+      });
+      addCommsEntry('system', '[SYSTEM] Deploy all — waking perched units');
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       INITIALIZATION ON LOAD
+       ══════════════════════════════════════════════════════════════ */
+    // Start the header clock immediately even before boot
+    setInterval(() => {
+      const now = new Date();
+      const el = document.getElementById('header-clock');
+      if (el) el.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+    }, 1000);
+  </script>
+</body>
+
+</html>

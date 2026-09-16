@@ -5,6 +5,8 @@
 
 # Core server
 websockets>=12.0
+fastapi>=0.100
+uvicorn>=0.22
 
 # AI/ML
 torch>=2.1
