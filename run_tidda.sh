@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$ROOT/.venv"
 PYTHON="$VENV/bin/python"
 SERVER="$ROOT/tidda_lightweight_swarm.py"
-FRONTEND="$ROOT/html/TIDDA_GCS_real h ai wala.html"
+FRONTEND="$ROOT/html/TIDDA_GCS.html"
 PORT=8000
 
 echo "============================================"

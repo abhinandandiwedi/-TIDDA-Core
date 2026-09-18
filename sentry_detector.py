@@ -87,8 +87,19 @@ class SentryDetector:
         if not self._loaded:
             print(f"[SENTRY] Loading {self._model_name}...")
             self._model = YOLO(self._model_name)
+            
+            # Configure device using hardware abstraction
+            from reconstruction.gpu import check_gpu
+            gpu_info = check_gpu()
+            if gpu_info.ready:
+                print(f"[SENTRY] GPU detected: {gpu_info.accelerator}. Moving model to device 'cuda'.")
+                self._model.to('cuda')
+            else:
+                print("[SENTRY] GPU unavailable. Using CPU fallback.")
+                self._model.to('cpu')
+                
             self._loaded = True
-            print(f"[SENTRY] Model loaded — ready for inference")
+            print(f"[SENTRY] Model loaded — ready for inference on {self._model.device}")
 
     def detect_persons(self, jpeg_base64: str) -> Optional[dict]:
         """Run YOLOv8n inference on a base64-encoded JPEG frame.
@@ -148,36 +159,32 @@ class SentryDetector:
                 person_mask = result.boxes.cls == PERSON_CLASS_ID
                 person_boxes = result.boxes[person_mask]
 
+        # Always encode the clean frame (no cv2 burn-in) for relay.
+        # The GCS v3.0 DOM overlay renders tactical bounding boxes itself.
         img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        _, buffer = cv2.imencode('.jpg', img_bgr)
+        clean_frame_b64 = base64.b64encode(buffer).decode('utf-8')
+
+        img_h, img_w = img_array.shape[:2]
 
         if person_boxes is None or len(person_boxes) == 0:
-            _, buffer = cv2.imencode('.jpg', img_bgr)
             return {
-                "annotated_frame": base64.b64encode(buffer).decode('utf-8')
+                "annotated_frame": clean_frame_b64,
+                "image_width": img_w,
+                "image_height": img_h,
             }
 
-        # Build response
+        # Build response with real bounding boxes for the frontend overlay
         confidences = person_boxes.conf.cpu().numpy().tolist()
         bboxes = person_boxes.xyxy.cpu().numpy().tolist()
-        
-        # ── Draw bounding boxes ───────────────────────────────────
-        # Convert RGB to BGR for cv2
-        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-        for box, conf in zip(bboxes, confidences):
-            x1, y1, x2, y2 = map(int, box)
-            cv2.rectangle(img_bgr, (x1, y1), (x2, y2), (0, 0, 255), 2)  # Red box
-            label = f"PERSON {conf:.2f}"
-            cv2.putText(img_bgr, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            
-        # Encode back to base64 JPEG
-        _, buffer = cv2.imencode('.jpg', img_bgr)
-        annotated_b64 = base64.b64encode(buffer).decode('utf-8')
 
         return {
             "confidence": round(max(confidences), 3),
             "person_count": len(person_boxes),
             "bboxes": [[round(c, 1) for c in box] for box in bboxes],
-            "annotated_frame": annotated_b64
+            "annotated_frame": clean_frame_b64,
+            "image_width": img_w,
+            "image_height": img_h,
         }
 
     @property

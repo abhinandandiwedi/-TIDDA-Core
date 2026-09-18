@@ -1432,6 +1432,9 @@ async def _ws_handler(
                                 "node_id": node_id,
                                 "confidence": result.get("confidence", 0.0),
                                 "person_count": result.get("person_count", 0),
+                                "bboxes": result.get("bboxes", []),
+                                "image_width": result.get("image_width", 0),
+                                "image_height": result.get("image_height", 0),
                                 "timestamp": detection_ts,
                                 "fusion": fused_entity,
                             }
@@ -1444,7 +1447,7 @@ async def _ws_handler(
                             stale_clients: list = []
                             for client in list(_connected):
                                 try:
-                                    await client.send(alert_json)
+                                    await client.send_text(alert_json)
                                 except Exception:
                                     stale_clients.append(client)
                             for client in stale_clients:
@@ -1461,7 +1464,7 @@ async def _ws_handler(
                             stale_clients = []
                             for client in list(_connected):
                                 try:
-                                    await client.send(live_payload)
+                                    await client.send_text(live_payload)
                                 except Exception:
                                     stale_clients.append(client)
                             for client in stale_clients:
@@ -1483,7 +1486,7 @@ async def _ws_handler(
                     stale: list = []
                     for client in list(_connected):
                         try:
-                            await client.send(live_payload)
+                            await client.send_text(live_payload)
                         except Exception:
                             stale.append(client)
                     for client in stale:
