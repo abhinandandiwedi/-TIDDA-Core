@@ -412,7 +412,8 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       gap: var(--gap);
       padding: var(--gap);
     }
@@ -435,8 +436,9 @@
 
     /* ── Bottom Bar ── */
     .bottom-bar {
-      height: 70px;
+      height: auto;
       min-height: 70px;
+      flex-shrink: 0;
       display: flex;
       gap: var(--gap);
       padding: 0 var(--gap) var(--gap) var(--gap);
@@ -5079,7 +5081,7 @@
     function createPointCloud() {
       // Use PLYLoader to load the sparse SfM point cloud from the backend
       const loader = new THREE.PLYLoader();
-      loader.load('/maps/sparse_model.ply', function (geo) {
+      loader.load('/models/fused.ply', function (geo) {
         const hasColor = geo.hasAttribute('color');
         const mat = new THREE.PointsMaterial({
           size: 0.05,

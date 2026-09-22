@@ -225,10 +225,13 @@ class PerceptionEngine:
 
         # Run inference safely
         try:
+            import torch
+            device_kw = {"device": "cuda"} if torch.cuda.is_available() else {}
             results = self._model(
                 img_array,
                 verbose=False,
                 conf=self.confidence_threshold,
+                **device_kw
             )
         except Exception:
             return []
