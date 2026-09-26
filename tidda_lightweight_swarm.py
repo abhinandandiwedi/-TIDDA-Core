@@ -86,6 +86,14 @@ _load_dotenv()
 #  TERMINAL LOGGER — clean, prefixed, color-free for compatibility
 # ══════════════════════════════════════════════════════════════════
 
+# Force UTF-8 stdout/stderr on Windows to prevent charmap crashes
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 def _ts() -> str:
     """Current timestamp for log lines."""
     return time.strftime("%H:%M:%S")
@@ -93,7 +101,14 @@ def _ts() -> str:
 
 def log(tag: str, msg: str) -> None:
     """Print a clean, formatted log line: [HH:MM:SS] [TAG] message"""
-    print(f"[{_ts()}] [{tag}] {msg}")
+    try:
+        print(f"[{_ts()}] [{tag}] {msg}")
+    except Exception:
+        try:
+            safe_msg = str(msg).encode("ascii", errors="replace").decode("ascii")
+            print(f"[{_ts()}] [{tag}] {safe_msg}")
+        except Exception:
+            pass
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -857,9 +872,7 @@ class GothamAnalyzer:
 
             for client in list(_connected):
                 try:
-                    await client.send(payload)
-                except websockets.exceptions.ConnectionClosed:
-                    stale.append(client)
+                    await client.send_text(payload)
                 except Exception:
                     # Any exotic transport error → mark stale, keep going
                     stale.append(client)
@@ -1029,6 +1042,37 @@ def _handle_command(raw: str) -> None:
 
         dist_m = _geo_distance_m(drone.lat, drone.lon, drone.target_lat, drone.target_lon)
         log("CMD", f"📍 {drone_id} → waypoint ({wp_lat:.5f}, {wp_lng:.5f})  dist={dist_m:.1f}m")
+        return
+
+    # ── RETURN TO BASE (RTB) ──────────────────────────────────────
+    if action == "rtb":
+        drone_id = msg.get("target_unit", "")
+        if drone_id:
+            drone = _find_drone(drone_id)
+            if drone:
+                drone.mode = "RTL"
+                log("CMD", f"🏠 {drone_id} commanded RTL")
+        else:
+            for d in _swarm_ref:
+                d.mode = "RTL"
+            log("CMD", "🏠 ALL UNITS commanded RTL")
+        return
+
+    # ── TAKEOFF / LAUNCH ──────────────────────────────────────────
+    if action in ("takeoff", "launch"):
+        drone_id = msg.get("target_unit", "")
+        if drone_id:
+            drone = _find_drone(drone_id)
+            if drone and drone.mode in ("LANDED", "STANDBY", "PERCHED"):
+                drone.mode = "TAKEOFF"
+                drone.battery = max(drone.battery, 30.0)
+                log("CMD", f"🚀 {drone_id} TAKEOFF")
+        else:
+            for d in _swarm_ref:
+                if d.mode in ("LANDED", "STANDBY", "PERCHED"):
+                    d.mode = "TAKEOFF"
+                    d.battery = max(d.battery, 30.0)
+            log("CMD", "🚀 ALL UNITS TAKEOFF")
         return
 
     log("CMD", f"Unknown action: {action}")
@@ -1356,7 +1400,7 @@ async def _ws_handler(
                                 })
                                 for client in list(_connected):
                                     try:
-                                        await client.send(update_msg)
+                                        await client.send_text(update_msg)
                                     except Exception:
                                         pass
                 continue
@@ -1644,7 +1688,7 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
 
                     for client in list(_connected):
                         try:
-                            await client.send(payload)
+                            await client.send_text(payload)
                         except WebSocketDisconnect:
                             stale.append(client)
                         except Exception:
@@ -1693,8 +1737,8 @@ async def broadcast_loop(swarm: List[DroneUnit]) -> None:
                     payload = json.dumps(telem)
                     for client in list(_connected):
                         try:
-                            await client.send(payload)
-                        except websockets.exceptions.ConnectionClosed:
+                            await client.send_text(payload)
+                        except WebSocketDisconnect:
                             stale.append(client)
                         except Exception:
                             stale.append(client)
@@ -1750,7 +1794,7 @@ async def mobile_watchdog_loop() -> None:  # Step 2e
                     })
                     for client in list(_connected):
                         try:
-                            await client.send(offline_msg)
+                            await client.send_text(offline_msg)
                         except Exception:
                             pass
     except asyncio.CancelledError:
@@ -1901,6 +1945,42 @@ async def main() -> None:
     if not os.path.exists("reconstruction"):
         os.makedirs("reconstruction")
     app.mount("/maps", StaticFiles(directory="reconstruction"), name="maps")
+
+    if not os.path.exists("models_served"):
+        os.makedirs("models_served")
+    app.mount("/models", StaticFiles(directory="models_served"), name="models")
+
+    if os.path.exists("dashboard"):
+        app.mount("/dashboard", StaticFiles(directory="dashboard", html=True), name="dashboard")
+
+    if os.path.exists("html"):
+        app.mount("/html", StaticFiles(directory="html", html=True), name="html")
+
+    @app.get("/")
+    async def get_root():
+        from fastapi.responses import FileResponse
+        if os.path.exists("dashboard/index.html"):
+            return FileResponse("dashboard/index.html")
+        elif os.path.exists("html/TIDDA_GCS.html"):
+            return FileResponse("html/TIDDA_GCS.html")
+        return {"status": "TIDDA C2 Online", "port": WS_PORT}
+
+    @app.get("/api/health")
+    async def get_health():
+        return {
+            "status": "ONLINE",
+            "swarm_count": len(swarm),
+            "mobile_nodes": _mobile_registry.count(),
+        }
+
+    @app.get("/api/models")
+    async def get_models():
+        models = []
+        if os.path.exists("models_served"):
+            for f in os.listdir("models_served"):
+                if f.endswith((".ply", ".obj", ".gltf", ".glb")):
+                    models.append(f)
+        return {"models": models}
 
     @app.websocket("/ws/ui")
     async def websocket_ui(websocket: WebSocket):

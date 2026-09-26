@@ -5080,8 +5080,14 @@
 
     function createPointCloud() {
       // Use PLYLoader to load the sparse SfM point cloud from the backend
+      const loc = window.location;
+      const isPort8000 = loc.port === '8000';
+      const backendBase = isPort8000
+        ? ''
+        : `http://${(loc.hostname && loc.hostname !== '') ? loc.hostname : '127.0.0.1'}:8000`;
+      const PLY_URL = `${backendBase}/models/fused.ply`;
       const loader = new THREE.PLYLoader();
-      loader.load('/models/fused.ply', function (geo) {
+      loader.load(PLY_URL, function (geo) {
         const hasColor = geo.hasAttribute('color');
         const mat = new THREE.PointsMaterial({
           size: 0.05,

@@ -8,7 +8,11 @@ set "ROOT=%~dp0"
 set "VENV=%ROOT%.venv"
 set "PYTHON=%VENV%\Scripts\python.exe"
 set "SERVER=%ROOT%tidda_lightweight_swarm.py"
-set "FRONTEND=%ROOT%html\TIDDA_GCS_real h ai wala.html"
+if exist "%ROOT%dashboard\index.html" (
+    set "FRONTEND=%ROOT%dashboard\index.html"
+) else (
+    set "FRONTEND=%ROOT%html\TIDDA_GCS.html"
+)
 set "PORT=8000"
 
 echo.

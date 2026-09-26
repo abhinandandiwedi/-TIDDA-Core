@@ -1471,6 +1471,10 @@
       color: var(--green);
     }
 
+    .comms-tag.commander {
+      color: var(--amber);
+    }
+
     /* ══════════════════════════════════════════════════════════════
        SCANLINE EFFECT
        ══════════════════════════════════════════════════════════════ */
@@ -3824,6 +3828,13 @@
                       <line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
                   </button>
+                  <button class="panel-action-btn" title="Zoom Out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                  </button>
                   <button class="panel-action-btn" title="Fullscreen">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <polyline points="15 3 21 3 21 9" />
@@ -3965,7 +3976,7 @@
                   </div>
                   <div class="coa-success">▸ PREDICTED SUCCESS: 92%</div>
                 </div>
-                <button class="coa-execute-btn" onclick="executeCOA('A')">EXECUTE</button>
+                <button class="coa-execute-btn" onclick="executeCOA(event, 'A')">EXECUTE</button>
               </div>
 
               <!-- Option B -->
@@ -3978,7 +3989,7 @@
                   </div>
                   <div class="coa-success">▸ PREDICTED SUCCESS: 87%</div>
                 </div>
-                <button class="coa-execute-btn" onclick="executeCOA('B')">EXECUTE</button>
+                <button class="coa-execute-btn" onclick="executeCOA(event, 'B')">EXECUTE</button>
               </div>
             </div>
           </div>
@@ -4034,12 +4045,12 @@
                     <polygon points="22 19 13 12 22 5 22 19" />
                   </svg>
                 </button>
-                <button class="dvr-btn active" title="Play">
+                <button class="dvr-btn" title="Play">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="5 3 19 12 5 21 5 3" />
                   </svg>
                 </button>
-                <button class="dvr-btn" title="Pause">
+                <button class="dvr-btn active" title="Pause">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="6" y="4" width="4" height="16" />
                     <rect x="14" y="4" width="4" height="16" />
@@ -4242,7 +4253,7 @@
               </div>
             </div>
             <div class="planner-actions">
-              <button class="btn-execute-flight" onclick="executeFlightPlan()">EXECUTE FLIGHT PLAN</button>
+              <button class="btn-execute-flight" onclick="executeFlightPlan(event)">EXECUTE FLIGHT PLAN</button>
             </div>
           </div>
 
@@ -4345,11 +4356,18 @@
             </div>
           </div>
 
-          <!-- Communication Hub -->
+          <!-- Communication Hub & Tactical AI -->
           <div class="bottom-panel">
-            <div class="bottom-panel-title">Communication Hub</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <div class="bottom-panel-title" style="margin-bottom: 0;">Communication Hub &amp; Tactical AI</div>
+              <span id="ai-status" style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing: 1px;">● AI READY</span>
+            </div>
             <div class="comms-log" id="comms-log">
               <!-- Comms entries dynamically inserted -->
+            </div>
+            <div class="comms-input-row" style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
+              <input type="text" id="ai-query-input" placeholder="Tactical query or command (e.g. 'status report', 'TIDDA-02 RTB', 'scan perimeter')..." style="flex: 1; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-primary); padding: 5px 10px; font-size: 11px; font-family: var(--font-mono); border-radius: var(--radius-sm); outline: none;">
+              <button id="ai-send-btn" class="mission-btn" style="padding: 5px 14px; font-size: 11px; cursor: pointer;">TRANSMIT</button>
             </div>
           </div>
         </div>
@@ -4431,7 +4449,10 @@
        WEBSOCKET CONNECTION
        ══════════════════════════════════════════════════════════════ */
     function connectWebSocket() {
-      const wsUrl = 'ws://localhost:8000/ws/ui';
+      const loc = window.location;
+      const wsProto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsHost = (loc.hostname && loc.hostname !== '') ? `${loc.hostname}:8000` : 'localhost:8000';
+      const wsUrl = STATE.wsUrl || `${wsProto}//${wsHost}/ws/ui`;
       try {
         STATE.ws = new WebSocket(wsUrl);
       } catch (e) {
@@ -4449,6 +4470,11 @@
         // Request initial states
         STATE.ws.send(JSON.stringify({ type: 'world_state' }));
         STATE.ws.send(JSON.stringify({ type: 'scan_state' }));
+
+        // Attempt 3D model reload if not yet loaded
+        if (!STATE.pointCloud) {
+          createPointCloud();
+        }
 
         // Periodic world state polling
         setInterval(() => {
@@ -4544,7 +4570,15 @@
 
       // ── AI response ──
       if (data.type === 'ai_response') {
+        const aiStatus = document.getElementById('ai-status');
+        if (aiStatus) {
+          aiStatus.textContent = '● AI READY';
+          aiStatus.style.color = 'var(--cyan)';
+        }
         addCommsEntry('system', `[AI] ${data.text}`);
+        if (STATE.aiHistory) {
+          STATE.aiHistory.push({ role: 'assistant', content: data.text });
+        }
         return;
       }
 
@@ -4821,7 +4855,7 @@
         const top = (y1 / imgH) * 100;
         const width = ((x2 - x1) / imgW) * 100;
         const height = ((y2 - y1) / imgH) * 100;
-        
+
         const className = classes[i] || 'object';
         const conf = confidences[i] !== undefined ? (confidences[i] * 100).toFixed(0) : 0;
 
@@ -4838,8 +4872,8 @@
 
         // Throttle detection logging to once per second per class
         if (!lastDetectionLogTime[className] || (now - lastDetectionLogTime[className] > 1000)) {
-           addDetectionLog('green', 'DETECTION', `${className} ${(confidences[i] || 0).toFixed(2)}`);
-           lastDetectionLogTime[className] = now;
+          addDetectionLog('green', 'DETECTION', `${className} ${(confidences[i] || 0).toFixed(2)}`);
+          lastDetectionLogTime[className] = now;
         }
       });
     }
@@ -4909,11 +4943,56 @@
       entry.className = 'comms-entry';
       entry.innerHTML = text.replace(/\[(.*?)\]/, (_, tag) => {
         const cls = tag.includes('ALERT') ? 'alert' :
-          tag.includes('SYSTEM') || tag.includes('AI') ? 'system' : 'drone';
+          tag.includes('SYSTEM') || tag.includes('AI') ? 'system' :
+          tag.includes('COMMANDER') ? 'commander' : 'drone';
         return `<span class="comms-tag ${cls}">[${tag}]</span>`;
       });
       log.appendChild(entry);
       log.scrollTop = log.scrollHeight;
+    }
+
+    function sendAIQuery(promptText) {
+      const text = (promptText || '').trim();
+      if (!text) return;
+      if (!STATE.ws || STATE.ws.readyState !== WebSocket.OPEN) {
+        addCommsEntry('alert', '[AI ERROR] C2 WebSocket not connected');
+        return;
+      }
+      addCommsEntry('system', `[COMMANDER] ${text}`);
+      const aiStatus = document.getElementById('ai-status');
+      if (aiStatus) {
+        aiStatus.textContent = '● AI PROCESSING…';
+        aiStatus.style.color = 'var(--amber)';
+      }
+
+      // Build telemetry snapshot for backend LLM
+      const telemSnapshot = {
+        flight_mode: 'PATROL',
+        rtb_status: false,
+        uptime: document.getElementById('si-uptime')?.textContent || '00:00:00',
+        swarm_count: `${Object.keys(STATE.drones).length}/4`,
+        drones: {},
+      };
+      Object.entries(STATE.drones).forEach(([id, d]) => {
+        telemSnapshot.drones[id] = {
+          label: id,
+          alt: d.altitude_m || 0,
+          bat: d.battery_pct || 100,
+          lat: d.lat || 0,
+          lng: d.lng || 0,
+          status: d.status || 'STANDBY',
+        };
+      });
+
+      if (!STATE.aiHistory) STATE.aiHistory = [];
+      STATE.ws.send(JSON.stringify({
+        type: 'command',
+        action: 'ai_query',
+        prompt: text,
+        history: STATE.aiHistory.slice(-10),
+        telemetry: telemSnapshot,
+      }));
+      STATE.aiHistory.push({ role: 'user', content: text });
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -5108,7 +5187,12 @@
 
     function createPointCloud() {
       // Load the REAL reconstructed point cloud from the FastAPI backend
-      const PLY_URL = 'http://127.0.0.1:8001/models/fused.ply';
+      const loc = window.location;
+      const isPort8000 = loc.port === '8000';
+      const backendBase = isPort8000
+        ? ''
+        : `http://${(loc.hostname && loc.hostname !== '') ? loc.hostname : '127.0.0.1'}:8000`;
+      const PLY_URL = `${backendBase}/models/fused.ply`;
       const badge = document.getElementById('model-status-badge');
       if (badge) { badge.style.display = 'block'; badge.textContent = 'LOADING 3D MODEL…'; }
 
@@ -5184,15 +5268,13 @@
           badge.textContent = 'LOADING 3D MODEL… ' + pct + '%';
         }
       }, function (error) {
-        // Error callback — do NOT fall back to fake geometry
-        console.error('[TIDDA] Failed to load real PLY:', error);
+        console.warn('[TIDDA] Remote PLY not yet reachable at', PLY_URL);
         if (badge) {
           badge.style.display = 'block';
-          badge.style.borderColor = 'rgba(255,60,60,0.6)';
-          badge.style.color = 'rgba(255,60,60,0.9)';
-          badge.textContent = 'MODEL LOAD FAILED — CHECK BACKEND';
+          badge.style.borderColor = 'rgba(255,160,0,0.6)';
+          badge.style.color = 'rgba(255,160,0,0.9)';
+          badge.textContent = 'WAITING FOR BACKEND (PORT 8000)';
         }
-        addDetectionLog('red', 'RECON', 'Failed to load real 3D model from <strong>' + PLY_URL + '</strong>');
       });
     }
 
@@ -5354,10 +5436,34 @@
     }
 
     function toggleLayer(layer) {
-      // Toggle layer visibility
+      // Track layer states
+      if (!toggleLayer._states) toggleLayer._states = { drones: true, assets: true, alerts: true, mission: true };
+      toggleLayer._states[layer] = !toggleLayer._states[layer];
+      const on = toggleLayer._states[layer];
+
       if (layer === 'drones') {
-        Object.values(droneModels).forEach(m => m.visible = !m.visible);
+        Object.values(droneModels).forEach(m => m.visible = on);
+      } else if (layer === 'assets') {
+        if (buildingGroup) buildingGroup.visible = on;
+        if (STATE.pointCloud) STATE.pointCloud.visible = on;
+      } else if (layer === 'alerts') {
+        // Toggle threat-marker visibility in the 3D map overlay
+        if (gridHelper) gridHelper.visible = on;
+      } else if (layer === 'mission') {
+        // Toggle mission controls panel visibility
+        const mc = document.querySelector('.mission-controls');
+        if (mc) mc.style.display = on ? '' : 'none';
       }
+
+      // Visual feedback on the layer-item row
+      const items = document.querySelectorAll('.layer-item');
+      items.forEach(item => {
+        if (item.textContent.trim().toLowerCase().includes(layer.substring(0, 5))) {
+          item.style.opacity = on ? '1' : '0.35';
+        }
+      });
+
+      addDetectionLog('cyan', 'LAYER', `Layer <strong>${layer.toUpperCase()}</strong> ${on ? 'ON' : 'OFF'}`);
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -5453,8 +5559,12 @@
     })();
 
     /* ── Execute handlers ── */
-    function executeCOA(option) {
-      const btn = event.target;
+    function executeCOA(event, option) {
+      if (typeof event === 'string') {
+        const tmp = event; event = option; option = tmp;
+      }
+      const btn = (event && event.currentTarget) || (event && event.target);
+      if (!btn) return;
       const origText = btn.textContent;
       btn.textContent = 'DISPATCHING...';
       btn.style.background = 'var(--green)';
@@ -5467,11 +5577,43 @@
           btn.style.boxShadow = '';
         }, 2000);
       }, 1500);
-      addCommsEntry('system', `[AI-COA] Executing Course of Action ${option} — Dispatching assets...`);
+
+      const opt = option || 'A';
+      addCommsEntry('system', `[AI-COA] Executing Course of Action ${opt} — Dispatching assets...`);
+
+      // Transmit real C2 command to backend swarm
+      if (opt === 'A') {
+        sendCommand('wake_drone', { target_unit: 'TIDDA-02', trigger: 'MANUAL_CALLOUT' });
+        sendCommand('set_waypoint', {
+          target_unit: 'TIDDA-02',
+          waypoint_lat: -35.3615,
+          waypoint_lng: 149.1670,
+        });
+        sendCommand('engage_target', {
+          lat: -35.3615,
+          lng: 149.1670,
+          confidence: 0.92,
+          detecting_drone: 'TIDDA-02',
+        });
+      } else {
+        sendCommand('wake_drone', { target_unit: 'TIDDA-03', trigger: 'MANUAL_CALLOUT' });
+        sendCommand('wake_drone', { target_unit: 'TIDDA-05', trigger: 'MANUAL_CALLOUT' });
+        sendCommand('set_waypoint', {
+          target_unit: 'TIDDA-03',
+          waypoint_lat: -35.3610,
+          waypoint_lng: 149.1630,
+        });
+        sendCommand('set_waypoint', {
+          target_unit: 'TIDDA-05',
+          waypoint_lat: -35.3650,
+          waypoint_lng: 149.1670,
+        });
+      }
     }
 
-    function executeFlightPlan() {
-      const btn = event.target;
+    function executeFlightPlan(event) {
+      const btn = (event && event.currentTarget) || (event && event.target);
+      if (!btn) return;
       const origText = btn.textContent;
       btn.textContent = 'EXECUTING...';
       btn.style.background = 'var(--green)';
@@ -5485,6 +5627,22 @@
         }, 2000);
       }, 1500);
       addCommsEntry('system', `[FLIGHT-PLAN] Pushing waypoints WP-01 to WP-03 to swarm nodes...`);
+
+      // Push waypoints to backend drones
+      const drones = Object.keys(STATE.drones);
+      const waypoints = [
+        { lat: -35.3610, lng: 149.1650 },
+        { lat: -35.3625, lng: 149.1680 },
+        { lat: -35.3645, lng: 149.1635 },
+      ];
+      waypoints.forEach((wp, idx) => {
+        const droneId = drones[idx] || `TIDDA-0${idx + 1}`;
+        sendCommand('set_waypoint', {
+          target_unit: droneId,
+          waypoint_lat: wp.lat,
+          waypoint_lng: wp.lng,
+        });
+      });
     }
 
     /* ══════════════════════════════════════════════════════════════
@@ -6048,6 +6206,464 @@
     function resetTopologyView() {
       topologyEngine.time = 0;
     }
+
+    /* ══════════════════════════════════════════════════════════════
+       INTERACTIVITY ENGINE — Wire every decorative element
+       ══════════════════════════════════════════════════════════════ */
+    (function wireAllInertElements() {
+
+      // ── 1. FULLSCREEN BUTTONS (Fullscreen API on parent panel) ───
+      document.querySelectorAll('.panel-action-btn[title="Fullscreen"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const panel = this.closest('.panel, .dvr-panel, .swarm-topology-panel, .threat-geo-panel, .timeline-graph-panel');
+          if (!panel) return;
+          if (!document.fullscreenElement) {
+            panel.requestFullscreen().then(() => {
+              panel.style.background = 'var(--bg-primary)';
+              addDetectionLog('cyan', 'UI', `Panel entered <strong>FULLSCREEN</strong>`);
+            }).catch(() => { });
+          } else {
+            document.exitFullscreen().catch(() => { });
+            addDetectionLog('cyan', 'UI', `Exited <strong>FULLSCREEN</strong>`);
+          }
+        });
+      });
+
+      // ── 2. CLOSE BUTTONS (hide panel, restore on double-click header) ───
+      document.querySelectorAll('.panel-action-btn[title="Close"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const panel = this.closest('.panel');
+          if (!panel) return;
+          panel.style.display = 'none';
+          addDetectionLog('cyan', 'UI', 'Panel <strong>CLOSED</strong> — double-click header area to restore');
+          // Allow restore from parent container double-click
+          const parent = panel.parentElement;
+          if (parent) {
+            const restoreHandler = () => {
+              panel.style.display = '';
+              parent.removeEventListener('dblclick', restoreHandler);
+              addDetectionLog('cyan', 'UI', 'Panel <strong>RESTORED</strong>');
+            };
+            parent.addEventListener('dblclick', restoreHandler);
+          }
+        });
+      });
+
+      // ── 3. GRID VIEW BUTTON (toggle compact card layout) ───
+      document.querySelectorAll('.panel-action-btn[title="Grid View"]').forEach(btn => {
+        let gridMode = false;
+        btn.addEventListener('click', function () {
+          gridMode = !gridMode;
+          const body = this.closest('.panel')?.querySelector('.panel-body');
+          if (body) {
+            body.style.display = gridMode ? 'grid' : '';
+            body.style.gridTemplateColumns = gridMode ? '1fr 1fr' : '';
+            body.style.gap = gridMode ? '8px' : '';
+          }
+          this.style.color = gridMode ? 'var(--cyan)' : '';
+          this.style.background = gridMode ? 'var(--cyan-dim)' : '';
+          addDetectionLog('cyan', 'UI', `Grid view <strong>${gridMode ? 'ON' : 'OFF'}</strong>`);
+        });
+      });
+
+      // ── 4. AUTO-SCROLL BUTTON ───
+      const autoscrollBtn = document.getElementById('autoscroll-btn');
+      if (autoscrollBtn) {
+        // Set initial active state
+        autoscrollBtn.style.color = 'var(--cyan)';
+        autoscrollBtn.style.background = 'var(--cyan-dim)';
+        autoscrollBtn.addEventListener('click', function () {
+          STATE.autoScroll = !STATE.autoScroll;
+          this.style.color = STATE.autoScroll ? 'var(--cyan)' : '';
+          this.style.background = STATE.autoScroll ? 'var(--cyan-dim)' : '';
+          addDetectionLog('cyan', 'UI', `Auto-scroll <strong>${STATE.autoScroll ? 'ON' : 'OFF'}</strong>`);
+          if (STATE.autoScroll) {
+            const log = document.getElementById('detection-log');
+            if (log) log.scrollTop = log.scrollHeight;
+          }
+        });
+      }
+
+      // ── 5. DVR TRANSPORT CONTROLS ───
+      const dvrState = {
+        playing: false,
+        speed: 4,
+        progress: 0.36,   // 12:47 / 35:22 ≈ 36%
+        totalSeconds: 2122, // 35:22
+        currentSeconds: 767, // 12:47
+        intervalId: null,
+      };
+
+      function formatDvrTime(sec) {
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(Math.floor(sec % 60)).padStart(2, '0');
+        return `${m}:${s}`;
+      }
+
+      function updateDvrDisplay() {
+        const fill = document.querySelector('.dvr-progress-fill');
+        const label = document.querySelector('.dvr-time-label');
+        const playhead = document.getElementById('tl-playhead');
+        if (fill) fill.style.width = `${(dvrState.currentSeconds / dvrState.totalSeconds) * 100}%`;
+        if (label) label.textContent = `${formatDvrTime(dvrState.currentSeconds)} / ${formatDvrTime(dvrState.totalSeconds)}`;
+        if (playhead) playhead.style.left = `${(dvrState.currentSeconds / dvrState.totalSeconds) * 100}%`;
+      }
+
+      function startDvrPlayback() {
+        if (dvrState.intervalId) return;
+        dvrState.intervalId = setInterval(() => {
+          dvrState.currentSeconds += dvrState.speed;
+          if (dvrState.currentSeconds >= dvrState.totalSeconds) {
+            dvrState.currentSeconds = dvrState.totalSeconds;
+            stopDvrPlayback();
+          }
+          updateDvrDisplay();
+        }, 1000);
+      }
+
+      function stopDvrPlayback() {
+        if (dvrState.intervalId) {
+          clearInterval(dvrState.intervalId);
+          dvrState.intervalId = null;
+        }
+      }
+
+      // Wire DVR transport buttons
+      const dvrBtns = document.querySelectorAll('.dvr-btn');
+      const dvrTitles = ['Rewind', 'Play', 'Pause', 'Fast Forward'];
+      dvrBtns.forEach(btn => {
+        const title = btn.getAttribute('title');
+        btn.addEventListener('click', function () {
+          dvrBtns.forEach(b => b.classList.remove('active'));
+
+          if (title === 'Play') {
+            this.classList.add('active');
+            dvrState.playing = true;
+            startDvrPlayback();
+            addDetectionLog('cyan', 'DVR', 'Playback <strong>PLAYING</strong>');
+          } else if (title === 'Pause') {
+            this.classList.add('active');
+            dvrState.playing = false;
+            stopDvrPlayback();
+            addDetectionLog('cyan', 'DVR', 'Playback <strong>PAUSED</strong>');
+          } else if (title === 'Rewind') {
+            dvrState.currentSeconds = Math.max(0, dvrState.currentSeconds - 30 * dvrState.speed);
+            updateDvrDisplay();
+            addDetectionLog('cyan', 'DVR', `Rewound to <strong>${formatDvrTime(dvrState.currentSeconds)}</strong>`);
+          } else if (title === 'Fast Forward') {
+            dvrState.currentSeconds = Math.min(dvrState.totalSeconds, dvrState.currentSeconds + 30 * dvrState.speed);
+            updateDvrDisplay();
+            addDetectionLog('cyan', 'DVR', `Skipped to <strong>${formatDvrTime(dvrState.currentSeconds)}</strong>`);
+          }
+        });
+      });
+
+      // Wire DVR speed buttons
+      document.querySelectorAll('.dvr-speed-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.dvr-speed-btn').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          dvrState.speed = parseInt(this.textContent);
+          addDetectionLog('cyan', 'DVR', `Speed set to <strong>${dvrState.speed}x</strong>`);
+        });
+      });
+
+      // Wire DVR progress bar (seekable click)
+      const dvrProgress = document.querySelector('.dvr-progress');
+      if (dvrProgress) {
+        dvrProgress.style.cursor = 'pointer';
+        dvrProgress.addEventListener('click', function (e) {
+          const rect = this.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          dvrState.currentSeconds = Math.floor(pct * dvrState.totalSeconds);
+          updateDvrDisplay();
+          addDetectionLog('cyan', 'DVR', `Seeked to <strong>${formatDvrTime(dvrState.currentSeconds)}</strong>`);
+        });
+      }
+
+      // Initialize DVR display
+      updateDvrDisplay();
+
+      // ── 6. TIMELINE SCRUBBER (draggable) ───
+      const scrubber = document.querySelector('.timeline-scrubber');
+      if (scrubber) {
+        const scrubProgress = scrubber.querySelector('.timeline-progress');
+        scrubber.style.cursor = 'pointer';
+
+        function handleScrub(e) {
+          const rect = scrubber.getBoundingClientRect();
+          const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          if (scrubProgress) scrubProgress.style.width = `${pct * 100}%`;
+          const totalSec = STATE.uptimeSec || 1;
+          const seekSec = Math.floor(pct * totalSec);
+          const mm = String(Math.floor(seekSec / 60)).padStart(2, '0');
+          const ss = String(seekSec % 60).padStart(2, '0');
+          const el = document.getElementById('timeline-elapsed');
+          if (el) el.textContent = `${mm}:${ss}`;
+        }
+
+        let dragging = false;
+        scrubber.addEventListener('mousedown', (e) => { dragging = true; handleScrub(e); });
+        document.addEventListener('mousemove', (e) => { if (dragging) handleScrub(e); });
+        document.addEventListener('mouseup', () => { dragging = false; });
+        scrubber.addEventListener('click', handleScrub);
+      }
+
+      // ── 7. MAP VIEW CONTROLS (Compass, Zoom In, Zoom Out, 3D Tilt) ───
+      const mapBg = document.querySelector('.map-bg');
+      if (mapBg) {
+        const mapState = { scale: 1, rotation: 0, tiltX: 0 };
+
+        function applyMapTransform() {
+          mapBg.style.transform = `scale(${mapState.scale}) rotate(${mapState.rotation}deg) perspective(800px) rotateX(${mapState.tiltX}deg)`;
+          mapBg.style.transition = 'transform 0.3s ease';
+        }
+
+        const ctrlBtns = document.querySelectorAll('.map-ctrl-btn');
+        ctrlBtns.forEach(btn => {
+          const title = btn.getAttribute('title');
+          btn.addEventListener('click', () => {
+            if (title && title.includes('Compass')) {
+              mapState.rotation = 0;
+              mapState.tiltX = 0;
+              mapState.scale = 1;
+              applyMapTransform();
+              addDetectionLog('cyan', 'MAP', 'View reset to <strong>NORTH UP</strong>');
+            } else if (title === 'Zoom In') {
+              mapState.scale = Math.min(3, mapState.scale * 1.2);
+              applyMapTransform();
+            } else if (title === 'Zoom Out') {
+              mapState.scale = Math.max(0.5, mapState.scale / 1.2);
+              applyMapTransform();
+            } else if (title === '3D Tilt') {
+              mapState.tiltX = mapState.tiltX === 0 ? 30 : 0;
+              applyMapTransform();
+              addDetectionLog('cyan', 'MAP', `3D Tilt <strong>${mapState.tiltX > 0 ? 'ON' : 'OFF'}</strong>`);
+            }
+          });
+        });
+      }
+
+      // ── 8. FILTER BUTTONS (cycle severity filter on incidents) ───
+      document.querySelectorAll('.panel-action-btn[title="Filter"], .panel-action-btn[title="Filter Events"]').forEach(btn => {
+        const filterStates = ['ALL', 'CRITICAL', 'WARNING'];
+        let filterIdx = 0;
+        btn.addEventListener('click', function () {
+          filterIdx = (filterIdx + 1) % filterStates.length;
+          const filter = filterStates[filterIdx];
+          const panel = this.closest('.incidents-panel, .chrono-panel');
+          if (panel) {
+            const cards = panel.querySelectorAll('.incident-card, .chrono-event');
+            cards.forEach(card => {
+              if (filter === 'ALL') {
+                card.style.display = '';
+              } else if (filter === 'CRITICAL') {
+                card.style.display = (card.classList.contains('amber') || card.classList.contains('warning')) ? 'none' : '';
+              } else if (filter === 'WARNING') {
+                card.style.display = (card.classList.contains('amber') || card.classList.contains('warning')) ? '' : 'none';
+              }
+            });
+          }
+          this.style.color = filter !== 'ALL' ? 'var(--amber)' : '';
+          this.style.background = filter !== 'ALL' ? 'var(--amber-dim)' : '';
+          addDetectionLog('cyan', 'FILTER', `Showing <strong>${filter}</strong> events`);
+        });
+      });
+
+      // ── 9. REFRESH ANALYSIS BUTTON ───
+      document.querySelectorAll('.panel-action-btn[title="Refresh Analysis"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const origColor = this.style.color;
+          this.style.color = 'var(--green)';
+          this.style.animation = 'spin 0.6s linear';
+          setTimeout(() => {
+            this.style.color = origColor;
+            this.style.animation = '';
+          }, 600);
+          addDetectionLog('cyan', 'AI-COA', 'Analysis <strong>REFRESHED</strong> — recalculating courses of action');
+          addCommsEntry('system', '[AI-COA] Reassessing threat landscape…');
+        });
+      });
+
+      // ── 10. ZOOM TO FIT (Timeline Graph) ───
+      document.querySelectorAll('.panel-action-btn[title="Zoom to Fit"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          if (timelineGraphEngine.initialized) {
+            timelineGraphEngine.time = 0;
+            timelineGraphEngine.resize();
+          }
+          addDetectionLog('cyan', 'UI', 'Timeline graph <strong>ZOOM TO FIT</strong>');
+        });
+      });
+
+      // ── 11. PICTURE-IN-PICTURE BUTTON ───
+      document.querySelectorAll('.panel-action-btn[title="Picture-in-Picture"]').forEach(btn => {
+        let pipActive = false;
+        btn.addEventListener('click', function () {
+          pipActive = !pipActive;
+          const panel = this.closest('.dvr-panel');
+          if (panel) {
+            if (pipActive) {
+              panel.style.position = 'fixed';
+              panel.style.bottom = '80px';
+              panel.style.right = '20px';
+              panel.style.width = '400px';
+              panel.style.height = '260px';
+              panel.style.zIndex = '9999';
+              panel.style.borderRadius = 'var(--radius-lg)';
+              panel.style.boxShadow = '0 8px 40px rgba(0,0,0,0.6)';
+              panel.style.resize = 'both';
+              panel.style.overflow = 'auto';
+            } else {
+              panel.style.position = '';
+              panel.style.bottom = '';
+              panel.style.right = '';
+              panel.style.width = '';
+              panel.style.height = '';
+              panel.style.zIndex = '';
+              panel.style.borderRadius = '';
+              panel.style.boxShadow = '';
+              panel.style.resize = '';
+              panel.style.overflow = '';
+            }
+          }
+          this.style.color = pipActive ? 'var(--cyan)' : '';
+          this.style.background = pipActive ? 'var(--cyan-dim)' : '';
+          addDetectionLog('cyan', 'UI', `Picture-in-Picture <strong>${pipActive ? 'ON' : 'OFF'}</strong>`);
+        });
+      });
+
+      // ── 12. ZOOM IN / ZOOM OUT (Alerts Threat Geo Panel) ───
+      let threatGeoZoom = 1;
+      function setThreatGeoZoom(level) {
+        threatGeoZoom = Math.max(1, Math.min(3, Math.round(level * 100) / 100));
+        if (threatGeoZoom < 1.05) threatGeoZoom = 1;
+        const container = document.querySelector('.threat-map-container');
+        if (container) {
+          container.style.transform = threatGeoZoom === 1 ? '' : `scale(${threatGeoZoom})`;
+          container.style.transformOrigin = 'center center';
+          container.style.transition = 'transform 0.3s ease';
+        }
+      }
+
+      document.querySelectorAll('.threat-geo-panel .panel-action-btn[title="Zoom In"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          setThreatGeoZoom(threatGeoZoom * 1.25);
+        });
+      });
+
+      document.querySelectorAll('.threat-geo-panel .panel-action-btn[title="Zoom Out"]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          setThreatGeoZoom(threatGeoZoom / 1.25);
+        });
+      });
+
+      // ── 13. SETTINGS BUTTON (toolbar) ───
+      const settingsBtn = document.querySelector('.toolbar-btn[title="Settings"]');
+      if (settingsBtn) {
+        settingsBtn.addEventListener('click', function () {
+          // Check if modal already exists
+          if (document.getElementById('settings-modal')) {
+            document.getElementById('settings-modal').remove();
+            return;
+          }
+          const modal = document.createElement('div');
+          modal.id = 'settings-modal';
+          modal.style.cssText = `
+            position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10001;
+            width:380px;background:var(--bg-panel);border:1px solid var(--border-accent);
+            border-radius:var(--radius-lg);padding:24px;backdrop-filter:blur(20px);
+            box-shadow:0 0 60px rgba(0,229,255,0.1);font-family:var(--font-mono);
+          `;
+          modal.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <span style="font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:2px;">⚙ SETTINGS</span>
+              <button id="close-settings" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;">✕</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px;font-size:11px;color:var(--text-secondary);">
+              <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Auto-reconnect WebSocket</span>
+                <input type="checkbox" checked style="accent-color:var(--cyan);width:16px;height:16px;">
+              </label>
+              <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Show Grid Overlay</span>
+                <input type="checkbox" id="set-grid" ${gridVisible ? 'checked' : ''} style="accent-color:var(--cyan);width:16px;height:16px;">
+              </label>
+              <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Point Cloud Size</span>
+                <input type="range" min="1" max="10" value="3" id="set-point-size" style="width:100px;accent-color:var(--cyan);">
+              </label>
+              <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>Max Log Entries</span>
+                <input type="number" value="${STATE.MAX_LOG_ENTRIES}" id="set-max-log" min="50" max="500" style="width:60px;background:var(--bg-input);border:1px solid var(--border);color:var(--text-primary);padding:4px 8px;border-radius:4px;font-family:var(--font-mono);">
+              </label>
+            </div>
+          `;
+          document.body.appendChild(modal);
+
+          document.getElementById('close-settings').addEventListener('click', () => modal.remove());
+          document.getElementById('set-grid').addEventListener('change', (e) => {
+            gridVisible = e.target.checked;
+            if (gridHelper) gridHelper.visible = gridVisible;
+          });
+          document.getElementById('set-point-size').addEventListener('input', (e) => {
+            if (STATE.pointCloud && STATE.pointCloud.material) {
+              STATE.pointCloud.material.size = parseFloat(e.target.value) * 0.05;
+            }
+          });
+          document.getElementById('set-max-log').addEventListener('change', (e) => {
+            STATE.MAX_LOG_ENTRIES = parseInt(e.target.value) || 150;
+          });
+          addDetectionLog('cyan', 'UI', 'Settings panel <strong>OPENED</strong>');
+        });
+      }
+
+      // ── 14. LOGOUT BUTTON ───
+      const logoutBtn = document.querySelector('.toolbar-btn[title="Logout"]');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          if (confirm('⚠ DISCONNECT from TIDDA GCS?\n\nAll telemetry streams will be terminated.')) {
+            // Close WebSocket
+            if (STATE.ws) {
+              STATE.ws.close();
+              STATE.ws = null;
+            }
+            STATE.connected = false;
+            setConnectionStatus(false);
+
+            // Show boot screen again
+            const boot = document.getElementById('boot-screen');
+            const app = document.getElementById('app');
+            if (boot) {
+              boot.style.display = '';
+              boot.classList.remove('hidden');
+            }
+            if (app) app.classList.remove('visible');
+            addCommsEntry('system', '[SYSTEM] Operator logged out — session terminated');
+          }
+        });
+      }
+
+      // ── 15. TACTICAL AI QUERY INPUT ───
+      const aiInput = document.getElementById('ai-query-input');
+      const aiSendBtn = document.getElementById('ai-send-btn');
+      if (aiSendBtn && aiInput) {
+        aiSendBtn.addEventListener('click', function () {
+          const val = aiInput.value;
+          aiInput.value = '';
+          sendAIQuery(val);
+        });
+        aiInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = aiInput.value;
+            aiInput.value = '';
+            sendAIQuery(val);
+          }
+        });
+      }
+
+    })(); // end wireAllInertElements
   </script>
 </body>
 
