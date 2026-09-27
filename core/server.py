@@ -177,53 +177,24 @@ async def start_stream(background_tasks: BackgroundTasks):
 
 
 
-# In-memory job state
-jobs = {}
-
-def process_video_task(job_id: str, video_path: str):
-    try:
-        jobs[job_id] = "Extracting frames..."
-        video_file = Path(video_path)
-        if not video_file.exists():
-            raise FileNotFoundError(f"Video {video_path} not found")
-        
-        # 1. Ingest and sample frames
-        frames_dir = sample_frames(video_file)
-        
-        jobs[job_id] = "Running COLMAP sparse reconstruction..."
-        # 2. Run COLMAP Sparse
-        sparse_ply = run_colmap_pipeline(frames_dir)
-        
-        jobs[job_id] = "Running COLMAP dense reconstruction..."
-        # 3. Run COLMAP Dense
-        from reconstruction.dense_reconstruction import run_dense_reconstruction
-        run_dense_reconstruction(frames_dir.parent)
-        
-        # Copy to central models directory
-        import shutil
-        fused_ply = frames_dir.parent / "dense" / "fused.ply"
-        served_ply = output_dir / "fused.ply"
-        shutil.copy(str(fused_ply), str(served_ply))
-        
-        # 4. Update world model
-        world_model.update_point_cloud(f"/models/{fused_ply.name}")
-        jobs[job_id] = f"Completed. Point cloud at /models/{fused_ply.name}"
-    except Exception as e:
-        jobs[job_id] = f"Error: {str(e)}"
-        print(f"Job {job_id} failed: {e}")
+from reconstruction.orchestrator import reconstruction_orchestrator
 
 @app.post("/api/reconstruct", response_model=JobResponse)
 async def start_reconstruction(req: StartReconstructionRequest, background_tasks: BackgroundTasks):
-    job_id = "job_1"  # Simple single job for now
-    jobs[job_id] = "Starting..."
-    background_tasks.add_task(process_video_task, job_id, req.video_path)
-    return JobResponse(job_id=job_id, status="Started", message="Reconstruction job submitted")
+    try:
+        job_id, job_record = reconstruction_orchestrator.start_job(req.video_path, fps=2.0)
+    except (FileNotFoundError, ValueError) as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    background_tasks.add_task(reconstruction_orchestrator.execute_job, job_id)
+    return JobResponse(job_id=job_id, status=job_record["status"], message=job_record["message"])
 
 @app.get("/api/job/{job_id}")
 async def get_job_status(job_id: str):
-    if job_id not in jobs:
+    job = reconstruction_orchestrator.get_job(job_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, "status": jobs[job_id]}
+    return job
 
 if __name__ == "__main__":
     uvicorn.run("core.server:app", host="0.0.0.0", port=8001, reload=True)

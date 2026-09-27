@@ -14,7 +14,9 @@ def run_dense_reconstruction(workspace_dir: Path):
     Runs the dense reconstruction pipeline using COLMAP (PatchMatch Stereo)
     Requires COLMAP compiled with HIP/CUDA for performance.
     """
-    colmap_exec = os.environ.get("COLMAP_EXEC", "/home/abhinandan/-TIDDA-Core/colmap_hip_build/build/src/colmap/exe/colmap")
+    REPO_ROOT = Path(__file__).resolve().parent.parent
+    default_colmap = str(REPO_ROOT / "colmap_hip_build" / "build" / "src" / "colmap" / "exe" / "colmap")
+    colmap_exec = os.environ.get("COLMAP_EXEC", default_colmap)
     
     dense_dir = workspace_dir / "dense"
     if dense_dir.exists():

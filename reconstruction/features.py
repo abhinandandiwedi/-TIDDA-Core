@@ -2,7 +2,9 @@ from pathlib import Path
 import os
 import subprocess
 
-COLMAP_EXEC = os.environ.get("COLMAP_EXEC", "/home/abhinandan/-TIDDA-Core/colmap_hip_build/build/src/colmap/exe/colmap")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_COLMAP = str(REPO_ROOT / "colmap_hip_build" / "build" / "src" / "colmap" / "exe" / "colmap")
+COLMAP_EXEC = os.environ.get("COLMAP_EXEC", DEFAULT_COLMAP)
 
 def extract_features(database_path: Path, images_path: Path):
     cmd = [

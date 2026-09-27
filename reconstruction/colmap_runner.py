@@ -13,7 +13,9 @@ if "LD_LIBRARY_PATH" not in os.environ:
 else:
     os.environ["LD_LIBRARY_PATH"] = f"/opt/rocm/core-10.0/lib:{os.environ['LD_LIBRARY_PATH']}"
 
-COLMAP_EXEC = os.environ.get("COLMAP_EXEC", "/home/abhinandan/-TIDDA-Core/colmap_hip_build/build/src/colmap/exe/colmap")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_COLMAP = str(REPO_ROOT / "colmap_hip_build" / "build" / "src" / "colmap" / "exe" / "colmap")
+COLMAP_EXEC = os.environ.get("COLMAP_EXEC", DEFAULT_COLMAP)
 
 def run_colmap_pipeline(frames_dir: Path) -> Path:
     workspace = frames_dir.parent

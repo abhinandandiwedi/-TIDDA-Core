@@ -6,8 +6,10 @@ from reconstruction.colmap_runner import run_colmap_pipeline
 from reconstruction.dense_reconstruction import run_dense_reconstruction
 import shutil
 
-# Make sure we use the verified path
-COLMAP_EXEC = "/home/abhinandan/-TIDDA-Core/colmap_hip_build/build/src/colmap/exe/colmap"
+# Make sure we use the verified path dynamically
+REPO_ROOT = Path(__file__).resolve().parent
+DEFAULT_COLMAP = str(REPO_ROOT / "colmap_hip_build" / "build" / "src" / "colmap" / "exe" / "colmap")
+COLMAP_EXEC = os.environ.get("COLMAP_EXEC", DEFAULT_COLMAP)
 os.environ["COLMAP_EXEC"] = COLMAP_EXEC
 
 if "LD_LIBRARY_PATH" not in os.environ:

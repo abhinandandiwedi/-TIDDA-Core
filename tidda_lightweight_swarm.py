@@ -36,7 +36,7 @@ from fusion_engine import FusionEngine
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
@@ -48,10 +48,13 @@ except ImportError:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
+
+from core.message_schema import StartReconstructionRequest, JobResponse
+from reconstruction.orchestrator import reconstruction_orchestrator
 
 try:
     import httpx
@@ -1981,6 +1984,50 @@ async def main() -> None:
                 if f.endswith((".ply", ".obj", ".gltf", ".glb")):
                     models.append(f)
         return {"models": models}
+
+    # ── Reconstruction API ─────────────────────────────────────────
+    @app.post("/api/reconstruct", response_model=JobResponse)
+    async def start_reconstruction(
+        background_tasks: BackgroundTasks,
+        req: Optional[StartReconstructionRequest] = None,
+        video_path: Optional[str] = None,
+    ):
+        target_path = None
+        if req and req.video_path:
+            target_path = req.video_path
+        elif video_path:
+            target_path = video_path
+
+        if not target_path:
+            raise HTTPException(
+                status_code=400,
+                detail="video_path must be provided in JSON body or query param",
+            )
+
+        try:
+            job_id, job_record = reconstruction_orchestrator.start_job(
+                target_path, fps=2.0
+            )
+        except (FileNotFoundError, ValueError) as err:
+            raise HTTPException(status_code=400, detail=str(err))
+
+        background_tasks.add_task(reconstruction_orchestrator.execute_job, job_id)
+        return JobResponse(
+            job_id=job_id,
+            status=job_record["status"],
+            message=job_record["message"],
+        )
+
+    @app.get("/api/job/{job_id}")
+    async def get_job_status(job_id: str):
+        job = reconstruction_orchestrator.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return job
+
+    @app.get("/api/jobs")
+    async def get_all_jobs():
+        return {"jobs": reconstruction_orchestrator.list_jobs()}
 
     @app.websocket("/ws/ui")
     async def websocket_ui(websocket: WebSocket):
