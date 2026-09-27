@@ -129,6 +129,8 @@ class MapperStats:
             "max_processing_ms": round(self.max_processing_ms, 1),
             "last_update_time": self.last_update_time,
             "tracking_failures": self.tracking_failures,
+            "consecutive_failures": getattr(self, "consecutive_failures", 0),
+            "successful_recoveries": getattr(self, "successful_recoveries", 0),
         }
 
 
@@ -145,10 +147,17 @@ class MapperConfig:
     keyframe_motion_threshold: float = 15.0       # Min pixel displacement for keyframe
     keyframe_feature_threshold: int = 30          # Min features required for keyframe
 
-    # Feature detection
-    orb_num_features: int = 500                   # ORB features to detect
-    match_ratio_threshold: float = 0.75           # Lowe's ratio test threshold
+    # Feature detection (Phase 4.5)
+    orb_num_features: int = 1000                  # ORB features to detect
+    orb_scale_factor: float = 1.2
+    orb_levels: int = 8
+    match_ratio_threshold: float = 0.80           # Lowe's ratio test threshold
+    match_cross_check: bool = True
     min_matches_for_pose: int = 15                # Min good matches for Essential matrix
+    
+    # RANSAC parameters
+    ransac_threshold: float = 2.0                 # RANSAC reprojection error threshold
+    ransac_probability: float = 0.999
 
     # Depth estimation
     default_focal_ratio: float = 0.9              # focal = max(w,h) * ratio when unknown
@@ -255,9 +264,13 @@ class IncrementalMapper:
         self._lock = threading.Lock()
 
         # ORB detector (CPU-friendly, no GPU needed)
-        self._orb = cv2.ORB_create(nfeatures=self.config.orb_num_features)
+        self._orb = cv2.ORB_create(
+            nfeatures=self.config.orb_num_features,
+            scaleFactor=self.config.orb_scale_factor,
+            nlevels=self.config.orb_levels,
+        )
         # Brute-force matcher with Hamming distance for ORB
-        self._bf_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        self._bf_matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=self.config.match_cross_check)
 
         # Map state
         self._voxel_grid = VoxelGrid(
@@ -382,22 +395,31 @@ class IncrementalMapper:
         matched_pts2 = None
         pose_mask = None
 
+        pose_quality = 0.0
+        pose_source = "NONE"
+
         if self._prev_descs is not None and descs is not None:
             pose_result = self._estimate_motion(
                 self._prev_kps, self._prev_descs,
                 kps, descs, w, h
             )
             if pose_result is not None:
-                relative_R, relative_t, num_inliers, matched_pts1, matched_pts2, pose_mask = pose_result
+                relative_R, relative_t, num_inliers, matched_pts1, matched_pts2, pose_mask, pose_quality = pose_result
                 tracking_status = TrackingStatus.POSE_OK
+                pose_source = "ESSENTIAL_MATRIX"
+                self.consecutive_failures = 0
             else:
                 tracking_status = TrackingStatus.MOTION_ESTIMATION_FAILED
+                pose_source = "NONE"
+                self.consecutive_failures = getattr(self, "consecutive_failures", 0) + 1
                 with self._lock:
                     self.stats.pose_fail_count += 1
                     self.stats.tracking_failures += 1
         else:
             # First keyframe — no previous to match against
             tracking_status = TrackingStatus.POSE_OK
+            pose_source = "INITIALIZATION"
+            pose_quality = 1.0
 
         # ── Update cumulative pose ────────────────────────────────
         if tracking_status == TrackingStatus.POSE_OK:
@@ -466,6 +488,8 @@ class IncrementalMapper:
             f"features={num_features}",
             points_added=self.stats.points_inserted,
             points_total=self._voxel_grid.count(),
+            pose_source=pose_source,
+            pose_quality=pose_quality,
         )
 
     def get_map_snapshot(self) -> Dict[str, Any]:
@@ -592,33 +616,43 @@ class IncrementalMapper:
         curr_descs: np.ndarray,
         width: int,
         height: int,
-    ) -> Optional[Tuple[np.ndarray, np.ndarray, int, np.ndarray, np.ndarray, np.ndarray]]:
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, int, np.ndarray, np.ndarray, np.ndarray, float]]:
         """Estimate relative camera motion using ORB matching + Essential matrix.
 
-        Returns (R, t, num_inliers, pts1, pts2, pose_mask) or None if estimation fails.
+        Returns (R, t, num_inliers, pts1, pts2, pose_mask, pose_quality) or None if estimation fails.
         """
         if prev_descs is None or curr_descs is None:
+            logger.info("  [MOTION] Missing descriptors")
             return None
         if len(prev_descs) < self.config.min_matches_for_pose:
+            logger.info(f"  [MOTION] Too few prev_descs: {len(prev_descs)}")
             return None
         if len(curr_descs) < self.config.min_matches_for_pose:
+            logger.info(f"  [MOTION] Too few curr_descs: {len(curr_descs)}")
             return None
 
-        # Match descriptors using knnMatch for ratio test
         try:
-            matches = self._bf_matcher.knnMatch(prev_descs, curr_descs, k=2)
-        except Exception:
+            if self.config.match_cross_check:
+                matches = self._bf_matcher.match(prev_descs, curr_descs)
+                # Sort by distance and filter
+                matches = sorted(matches, key=lambda x: x.distance)
+                # Keep top 20% or a minimum number
+                keep = max(self.config.min_matches_for_pose * 2, int(len(matches) * 0.2))
+                good_matches = matches[:keep]
+            else:
+                matches = self._bf_matcher.knnMatch(prev_descs, curr_descs, k=2)
+                good_matches = []
+                for m_pair in matches:
+                    if len(m_pair) == 2:
+                        m, n = m_pair
+                        if m.distance < self.config.match_ratio_threshold * n.distance:
+                            good_matches.append(m)
+        except Exception as e:
+            logger.info(f"  [MOTION] Matching error: {e}")
             return None
-
-        # Lowe's ratio test
-        good_matches = []
-        for m_pair in matches:
-            if len(m_pair) == 2:
-                m, n = m_pair
-                if m.distance < self.config.match_ratio_threshold * n.distance:
-                    good_matches.append(m)
 
         if len(good_matches) < self.config.min_matches_for_pose:
+            logger.info(f"  [MOTION] Too few good matches: {len(good_matches)}")
             return None
 
         # Extract matched point coordinates
@@ -632,28 +666,40 @@ class IncrementalMapper:
         # Find Essential matrix
         E, mask = cv2.findEssentialMat(
             pts1, pts2, focal=focal, pp=pp,
-            method=cv2.RANSAC, prob=0.999, threshold=1.0
+            method=cv2.RANSAC, 
+            prob=self.config.ransac_probability, 
+            threshold=self.config.ransac_threshold
         )
 
         if E is None or mask is None:
+            logger.info("  [MOTION] Essential matrix estimation failed")
             return None
 
         inliers = int(mask.sum())
         if inliers < 8:
+            logger.info(f"  [MOTION] Too few E inliers: {inliers}")
             return None
 
         # Recover pose from Essential matrix
         _, R, t, pose_mask = cv2.recoverPose(E, pts1, pts2, focal=focal, pp=pp, mask=mask)
 
         if R is None or t is None:
+            logger.info("  [MOTION] recoverPose failed")
             return None
 
         # Validate rotation matrix (det should be ~1)
         det = np.linalg.det(R)
         if abs(det - 1.0) > 0.01:
+            logger.info(f"  [MOTION] Invalid rotation det: {det}")
             return None
 
-        return R, t, inliers, pts1, pts2, pose_mask
+        # Compute pose quality (0.0 to 1.0)
+        # Based on inlier ratio and total inliers
+        inlier_ratio = inliers / max(1, len(good_matches))
+        inlier_score = min(1.0, inliers / 100.0) # 100 inliers is "perfect"
+        pose_quality = (inlier_ratio * 0.4) + (inlier_score * 0.6)
+
+        return R, t, inliers, pts1, pts2, pose_mask, round(pose_quality, 3)
 
     def _estimate_depth(self, img_bgr: np.ndarray) -> Optional[np.ndarray]:
         """Estimate depth map for the current frame.
@@ -894,6 +940,8 @@ class IncrementalMapper:
         message: str = "",
         points_added: int = 0,
         points_total: int = 0,
+        pose_source: str = "NONE",
+        pose_quality: float = 0.0,
     ) -> Dict[str, Any]:
         """Build a standard status result dict."""
         return {
@@ -902,6 +950,8 @@ class IncrementalMapper:
             "node_id": node_id,
             "timestamp": timestamp,
             "tracking_status": status,
+            "pose_source": pose_source,
+            "pose_quality": pose_quality,
             "message": message,
             "points_added": points_added,
             "points_total": points_total,
