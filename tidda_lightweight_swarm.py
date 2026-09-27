@@ -2212,6 +2212,40 @@ async def main() -> None:
         _cooperative_mapper.unregister_node(req.node_id)
         return {"status": "UNREGISTERED", "node_id": req.node_id}
 
+    # ── Phase 6: Persistent World API ──────────
+    @app.get("/api/world/status")
+    async def get_world_status():
+        state = _cooperative_mapper.world_store.load_metadata()
+        if not state:
+            return {"status": "OFFLINE", "persistence": "NONE"}
+        return {
+            "status": "ONLINE",
+            "world_id": state.get("world_id"),
+            "map_version": state.get("map_version", 0),
+            "total_points": state.get("total_points", 0),
+            "active_nodes": state.get("active_nodes", 0),
+            "last_update": state.get("updated_at"),
+            "persistence": "OK"
+        }
+
+    @app.get("/api/world/map")
+    async def get_world_map():
+        ply_path = _cooperative_mapper.world_store.global_map_path
+        if not ply_path.exists():
+            raise HTTPException(status_code=404, detail="Global map PLY not found")
+        return FileResponse(str(ply_path), media_type="application/octet-stream", filename="world_map.ply")
+
+    @app.post("/api/world/save")
+    async def save_world():
+        res = _cooperative_mapper.save_world_state()
+        return res
+
+    @app.post("/api/world/reload")
+    async def reload_world():
+        _cooperative_mapper.reload_world()
+        return {"status": "RELOADED", "version": _cooperative_mapper.map_version}
+
+
     @app.get("/api/detections/3d")
     async def get_detections_3d(workspace: str, frame: str):
         workspace_path = Path(workspace)

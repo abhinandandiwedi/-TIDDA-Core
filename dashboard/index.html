@@ -3550,12 +3550,15 @@
                     </div>
                     <div id="coop-map-stats" style="line-height:1.5;">
                       <div>STATUS: <span id="cm-status">IDLE</span></div>
+                      <div>MAP VERSION: <span id="cm-version">0</span></div>
                       <div>NODES: <span id="cm-nodes">0</span></div>
                       <div>GLOBAL PTS: <span id="cm-points">0</span></div>
+                      <div>PERSISTENCE: <span id="cm-persistence">NONE</span></div>
                       <div>LAST ALIGN: <span id="cm-align">--</span></div>
                     </div>
                     <div style="margin-top:5px;display:flex;gap:4px;">
                       <button id="cm-align-btn" onclick="triggerAlign()" style="font-size:8px;padding:2px 6px;background:rgba(0,200,80,0.2);border:1px solid rgba(0,200,80,0.4);color:rgba(0,200,80,0.9);border-radius:2px;cursor:pointer;">ALIGN NODES</button>
+                      <button id="cm-save-btn" onclick="saveWorld()" style="font-size:8px;padding:2px 6px;background:rgba(0,100,255,0.2);border:1px solid rgba(0,100,255,0.4);color:rgba(100,180,255,0.9);border-radius:2px;cursor:pointer;">SAVE WORLD</button>
                     </div>
                   </div>
                   <!-- Map Tools -->
@@ -5252,8 +5255,10 @@
       }
 
       document.getElementById('cm-status').textContent = state.status;
+      document.getElementById('cm-version').textContent = state.map_version !== undefined ? state.map_version : 0;
       document.getElementById('cm-nodes').textContent = state.node_ids ? state.node_ids.join(', ') : '0';
       document.getElementById('cm-points').textContent = state.global_points;
+      document.getElementById('cm-persistence').textContent = state.persistence || 'NONE';
 
       if (state.last_alignment && state.last_alignment.status) {
         const align = state.last_alignment;
@@ -5293,6 +5298,18 @@
       } else {
         addDetectionLog('red', 'CO-OP', 'Need at least 2 nodes to align!');
       }
+    }
+
+    function saveWorld() {
+      fetch('/api/world/save', {
+        method: 'POST'
+      }).then(r => r.json()).then(res => {
+        if (res.status === 'OK') {
+            addDetectionLog('cyan', 'WORLD', 'Save World v' + res.version + ': OK');
+        } else {
+            addDetectionLog('red', 'WORLD', 'Save World: ERROR');
+        }
+      });
     }
 
     function updateCameraTrajectory(keyframes) {

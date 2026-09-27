@@ -7,13 +7,14 @@ import numpy as np
 import open3d as o3d
 
 from reconstruction.incremental_mapper import IncrementalMapper, MapperConfig
+from reconstruction.world_store import WorldStore
 
 logger = logging.getLogger("reconstruction.cooperative_mapper")
 
 class CooperativeMapper:
     """Manager for multi-node cooperative 3D mapping."""
 
-    def __init__(self):
+    def __init__(self, workspace_dir: str = "workspaces/default"):
         self._nodes: Dict[str, IncrementalMapper] = {}
         self._lock = threading.Lock()
 
@@ -21,6 +22,40 @@ class CooperativeMapper:
         self._global_points = np.zeros((0, 3), dtype=np.float32)
         self._global_colors = np.zeros((0, 3), dtype=np.uint8)
         self._last_alignment = {}
+        
+        self.map_version = 0
+        self.world_store = WorldStore(workspace_dir)
+        self.reload_world()
+
+    def reload_world(self):
+        with self._lock:
+            state = self.world_store.load_world()
+            if state["status"] in ["OK", "RECOVERY"]:
+                self._global_points = state.get("points", np.zeros((0, 3), dtype=np.float32))
+                self._global_colors = state.get("colors", np.zeros((0, 3), dtype=np.uint8))
+                meta = state.get("metadata", {})
+                self.map_version = meta.get("map_version", 0)
+                logger.info(f"[CO-OP] Reloaded persistent world version {self.map_version}")
+            else:
+                self._global_points = np.zeros((0, 3), dtype=np.float32)
+                self._global_colors = np.zeros((0, 3), dtype=np.uint8)
+                self.map_version = 0
+                logger.info("[CO-OP] Started fresh empty world.")
+                
+    def save_world_state(self):
+        # Assumes lock is held by caller
+        nodes_meta = {
+            node_id: {
+                "points": len(mapper.get_full_pointcloud()[0]),
+                "keyframes": len(mapper._keyframes)
+            } for node_id, mapper in self._nodes.items()
+        }
+        return self.world_store.save_world(
+            self._global_points,
+            self._global_colors,
+            nodes_meta,
+            self.map_version
+        )
 
     def register_node(self, node_id: str, config: Optional[MapperConfig] = None) -> IncrementalMapper:
         """Register a new mobile mapping node."""
@@ -52,8 +87,10 @@ class CooperativeMapper:
             self._global_points = np.zeros((0, 3), dtype=np.float32)
             self._global_colors = np.zeros((0, 3), dtype=np.uint8)
             self._last_alignment = {}
+            self.map_version = 0
             for mapper in self._nodes.values():
                 mapper.reset()
+            self.save_world_state()
             logger.info("[CO-OP] Global map and all local maps reset.")
 
     def find_correspondences(
@@ -243,6 +280,10 @@ class CooperativeMapper:
             self._global_colors = (np.asarray(pcd_down.colors) * 255.0).astype(np.uint8)
 
             global_after = len(self._global_points)
+            
+            self.map_version += 1
+            res = self.save_world_state()
+            print(f"DEBUG fuse_maps save_world_state result: {res}")
 
             self._last_alignment = {
                 "source": source_id,
@@ -273,8 +314,10 @@ class CooperativeMapper:
         with self._lock:
             return {
                 "status": "READY" if len(self._global_points) > 0 else "IDLE",
+                "map_version": self.map_version,
                 "nodes": len(self._nodes),
                 "node_ids": list(self._nodes.keys()),
                 "global_points": len(self._global_points),
-                "last_alignment": self._last_alignment
+                "last_alignment": self._last_alignment,
+                "persistence": self.world_store.load_metadata().get("persistence_version", 1) if self.map_version > 0 else "NONE"
             }
