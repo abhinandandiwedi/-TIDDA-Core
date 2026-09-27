@@ -87,6 +87,10 @@ class WorldStore:
             except Exception as e:
                 logger.error(f"[WORLD] Failed to load PLY: {e}")
                 return {"status": "RECOVERY", "metadata": metadata}
+        else:
+            if metadata.get("total_points", 0) > 0:
+                logger.error("[WORLD] PLY file is missing but metadata claims points exist. State corrupted.")
+                return {"status": "RECOVERY", "metadata": metadata}
                 
         logger.info(f"[WORLD] Loaded world v{metadata.get('map_version')} with {len(points)} points.")
         return {

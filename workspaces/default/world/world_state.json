@@ -1,1 +1,19 @@
-{ invalid json
+{
+  "world_id": "4c2a0e26-d1c1-4e9e-a1a3-710960d640ee",
+  "map_version": 1,
+  "created_at": 1790521410.7801185,
+  "updated_at": 1790521465.4527454,
+  "total_points": 202,
+  "active_nodes": 2,
+  "persistence_version": 1,
+  "nodes": {
+    "NODE-A": {
+      "points": 143,
+      "keyframes": 14
+    },
+    "NODE-B": {
+      "points": 109,
+      "keyframes": 13
+    }
+  }
+}

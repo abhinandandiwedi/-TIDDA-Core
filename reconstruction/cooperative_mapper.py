@@ -29,6 +29,8 @@ class CooperativeMapper:
 
     def reload_world(self):
         with self._lock:
+            self._nodes.clear()
+            self._last_alignment.clear()
             state = self.world_store.load_world()
             if state["status"] in ["OK", "RECOVERY"]:
                 self._global_points = state.get("points", np.zeros((0, 3), dtype=np.float32))
@@ -41,6 +43,7 @@ class CooperativeMapper:
                 self._global_colors = np.zeros((0, 3), dtype=np.uint8)
                 self.map_version = 0
                 logger.info("[CO-OP] Started fresh empty world.")
+            return state["status"]
                 
     def save_world_state(self):
         # Assumes lock is held by caller

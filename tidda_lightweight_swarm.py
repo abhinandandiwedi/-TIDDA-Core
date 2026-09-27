@@ -2242,8 +2242,8 @@ async def main() -> None:
 
     @app.post("/api/world/reload")
     async def reload_world():
-        _cooperative_mapper.reload_world()
-        return {"status": "RELOADED", "version": _cooperative_mapper.map_version}
+        status = _cooperative_mapper.reload_world()
+        return {"status": status, "version": _cooperative_mapper.map_version}
 
 
     @app.get("/api/detections/3d")

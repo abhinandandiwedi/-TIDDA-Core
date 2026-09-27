@@ -24,6 +24,10 @@ def get_frames(workspace, count=20):
 def test_cooperative_mapping(workspace):
     print("=== Phase 5 Cooperative Mapping Test ===")
 
+    # Ensure clean state
+    requests.post(f"{API_URL}/api/map/reset")
+    time.sleep(1)
+
     frames = get_frames(workspace, count=50)
     if not frames:
         return
