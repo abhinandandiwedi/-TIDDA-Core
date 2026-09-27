@@ -3521,6 +3521,26 @@
                   <div id="model-status-badge"
                     style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;border-radius:3px;background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);color:rgba(0,229,255,0.6);letter-spacing:1px;pointer-events:none;display:none;">
                     LOADING 3D MODEL…</div>
+                  <!-- Phase 4: Live Mapping Status Overlay -->
+                  <div id="live-map-overlay"
+                    style="position:absolute;bottom:10px;left:10px;z-index:20;font-family:'JetBrains Mono',monospace;font-size:9px;padding:6px 10px;border-radius:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(0,229,255,0.2);color:rgba(200,215,230,0.8);letter-spacing:0.5px;display:none;min-width:180px;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                      <span id="live-map-dot" style="width:6px;height:6px;border-radius:50%;background:#444;"></span>
+                      <span id="live-map-label" style="color:rgba(0,229,255,0.9);font-weight:bold;">LIVE MAP: OFF</span>
+                    </div>
+                    <div id="live-map-stats" style="line-height:1.5;">
+                      <div>TRACK: <span id="lm-tracking">--</span></div>
+                      <div>POINTS: <span id="lm-points">0</span></div>
+                      <div>KEYFRAMES: <span id="lm-keyframes">0</span></div>
+                      <div>FPS: <span id="lm-fps">0</span></div>
+                      <div>NODE: <span id="lm-node">--</span></div>
+                    </div>
+                    <div style="margin-top:5px;display:flex;gap:4px;">
+                      <button id="lm-start-btn" onclick="sendMapCommand('map_start')" style="font-size:8px;padding:2px 6px;background:rgba(0,200,80,0.2);border:1px solid rgba(0,200,80,0.4);color:rgba(0,200,80,0.9);border-radius:2px;cursor:pointer;">START</button>
+                      <button id="lm-stop-btn" onclick="sendMapCommand('map_stop')" style="font-size:8px;padding:2px 6px;background:rgba(200,160,0,0.2);border:1px solid rgba(200,160,0,0.4);color:rgba(200,160,0,0.9);border-radius:2px;cursor:pointer;">STOP</button>
+                      <button id="lm-reset-btn" onclick="sendMapCommand('map_reset')" style="font-size:8px;padding:2px 6px;background:rgba(200,60,60,0.2);border:1px solid rgba(200,60,60,0.4);color:rgba(200,60,60,0.9);border-radius:2px;cursor:pointer;">RESET</button>
+                    </div>
+                  </div>
                   <!-- Map Tools -->
                   <div class="map-tools">
                     <button class="map-tool-btn" title="Zoom In" onclick="zoomIn()">
@@ -4476,16 +4496,22 @@
         // Request initial states
         STATE.ws.send(JSON.stringify({ type: 'world_state' }));
         STATE.ws.send(JSON.stringify({ type: 'scan_state' }));
+        STATE.ws.send(JSON.stringify({ type: 'map_state' }));
+
+        // Show live map overlay
+        const overlay = document.getElementById('live-map-overlay');
+        if (overlay) overlay.style.display = 'block';
 
         // Attempt 3D model reload if not yet loaded
         if (!STATE.pointCloud) {
           createPointCloud();
         }
 
-        // Periodic world state polling
+        // Periodic world state + map state polling
         setInterval(() => {
           if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
             STATE.ws.send(JSON.stringify({ type: 'world_state' }));
+            STATE.ws.send(JSON.stringify({ type: 'map_state' }));
           }
         }, 3000);
       };
@@ -4597,6 +4623,20 @@
       // ── Weapon telemetry ──
       if (data.weapon_id) {
         return; // Weapon telemetry — future use
+      }
+
+      // ── Phase 4: Live mapping updates ──
+      if (data.type === 'MAP_UPDATE') {
+        handleMapUpdate(data);
+        return;
+      }
+      if (data.type === 'MAP_POINTS') {
+        handleMapPoints(data);
+        return;
+      }
+      if (data.type === 'MAP_STATE') {
+        handleMapState(data);
+        return;
       }
     }
 
@@ -5058,6 +5098,196 @@
     let droneModels = {};
     let buildingGroup, gridHelper;
     let gridVisible = true;
+
+    // Phase 4: Live mapping Three.js objects
+    let liveMapGroup = null;       // THREE.Group for all live map objects
+    let liveMapPoints = null;      // THREE.Points for incremental map
+    let liveMapPositions = [];     // Array of [x,y,z] positions
+    let liveMapColors = [];        // Array of [r,g,b] colors (0-1)
+    let liveMapTrajectory = null;  // THREE.Line for camera trajectory
+    let liveMapCameraPoses = [];   // Array of {x,y,z}
+    let liveMapCameraMarker = null; // Current camera position marker
+    let liveMapActive = false;
+    let liveMapTotalPoints = 0;
+
+    // Phase 4: Live mapping functions
+    function sendMapCommand(cmd) {
+      if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
+        STATE.ws.send(JSON.stringify({ type: cmd }));
+      }
+    }
+
+    function handleMapUpdate(data) {
+      const overlay = document.getElementById('live-map-overlay');
+      if (overlay) overlay.style.display = 'block';
+
+      const status = data.tracking_status || '--';
+      const dot = document.getElementById('live-map-dot');
+      const label = document.getElementById('live-map-label');
+
+      if (status === 'MAPPER_RESET') {
+        resetLiveMapVisuals();
+        if (label) label.textContent = 'LIVE MAP: RESET';
+        if (dot) dot.style.background = '#c44';
+        return;
+      }
+
+      // Update status display
+      const el = (id) => document.getElementById(id);
+      if (el('lm-tracking')) {
+        el('lm-tracking').textContent = status;
+        el('lm-tracking').style.color = status === 'POSE_OK' ? '#0c8' :
+          status === 'NO_KEYFRAME' ? '#888' :
+          status === 'FRAME_SKIPPED' ? '#666' : '#c84';
+      }
+      if (el('lm-points')) el('lm-points').textContent = (data.points_total || 0).toLocaleString();
+      if (el('lm-keyframes')) el('lm-keyframes').textContent = data.keyframe_count || 0;
+      if (data.stats && el('lm-fps')) el('lm-fps').textContent = data.stats.avg_processing_ms ?
+        (1000 / data.stats.avg_processing_ms).toFixed(1) : '0';
+      if (el('lm-node')) el('lm-node').textContent = data.node_id || '--';
+
+      if (label) label.textContent = 'LIVE MAP: ON';
+      if (dot) dot.style.background = status === 'POSE_OK' ? '#0c8' : '#c84';
+      liveMapActive = true;
+      liveMapTotalPoints = data.points_total || 0;
+    }
+
+    function handleMapPoints(data) {
+      if (!data.points || !data.points.length) return;
+      if (!scene) return;
+
+      // Initialize live map group if needed
+      if (!liveMapGroup) {
+        liveMapGroup = new THREE.Group();
+        liveMapGroup.name = 'liveMapGroup';
+        scene.add(liveMapGroup);
+      }
+
+      // Accumulate points
+      for (const pt of data.points) {
+        liveMapPositions.push(pt.x, pt.y, pt.z);
+        liveMapColors.push((pt.r || 128) / 255, (pt.g || 128) / 255, (pt.b || 128) / 255);
+      }
+
+      // Rebuild point cloud geometry (efficient for incremental updates)
+      if (liveMapPoints) {
+        liveMapGroup.remove(liveMapPoints);
+        liveMapPoints.geometry.dispose();
+        liveMapPoints.material.dispose();
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(liveMapPositions, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(liveMapColors, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: 0.08,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.85,
+        sizeAttenuation: true,
+      });
+
+      liveMapPoints = new THREE.Points(geo, mat);
+      liveMapPoints.name = 'liveMapPoints';
+      liveMapGroup.add(liveMapPoints);
+
+      // Auto-center on first significant batch
+      if (liveMapPositions.length > 30 && liveMapPositions.length < 120) {
+        const box = new THREE.Box3().setFromObject(liveMapPoints);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        controls.target.copy(center);
+        camera.position.set(center.x + 5, center.y + 5, center.z + 5);
+        controls.update();
+      }
+
+      addDetectionLog('cyan', 'MAP', 'Live map: +' + data.points.length + ' pts (' + (liveMapPositions.length / 3) + ' total)');
+    }
+
+    function handleMapState(data) {
+      // Full state response — update stats
+      handleMapUpdate(data);
+
+      // Update camera trajectory if keyframes available
+      if (data.keyframes && data.keyframes.length > 0 && liveMapGroup) {
+        updateCameraTrajectory(data.keyframes);
+      }
+    }
+
+    function updateCameraTrajectory(keyframes) {
+      if (!liveMapGroup) return;
+
+      // Remove old trajectory
+      if (liveMapTrajectory) {
+        liveMapGroup.remove(liveMapTrajectory);
+        liveMapTrajectory.geometry.dispose();
+        liveMapTrajectory.material.dispose();
+      }
+      if (liveMapCameraMarker) {
+        liveMapGroup.remove(liveMapCameraMarker);
+        liveMapCameraMarker.geometry.dispose();
+        liveMapCameraMarker.material.dispose();
+      }
+
+      if (keyframes.length < 2) return;
+
+      // Build trajectory line
+      const trajPositions = [];
+      for (const kf of keyframes) {
+        const p = kf.position;
+        trajPositions.push(p[0], p[1], p[2]);
+      }
+
+      const trajGeo = new THREE.BufferGeometry();
+      trajGeo.setAttribute('position', new THREE.Float32BufferAttribute(trajPositions, 3));
+      const trajMat = new THREE.LineBasicMaterial({
+        color: 0x00FF88,
+        transparent: true,
+        opacity: 0.7,
+        linewidth: 2,
+      });
+      liveMapTrajectory = new THREE.Line(trajGeo, trajMat);
+      liveMapTrajectory.name = 'cameraTrajectory';
+      liveMapGroup.add(liveMapTrajectory);
+
+      // Current camera marker (small sphere)
+      const lastKf = keyframes[keyframes.length - 1];
+      const markerGeo = new THREE.SphereGeometry(0.15, 8, 8);
+      const markerMat = new THREE.MeshBasicMaterial({ color: 0x00FF88, transparent: true, opacity: 0.9 });
+      liveMapCameraMarker = new THREE.Mesh(markerGeo, markerMat);
+      liveMapCameraMarker.position.set(lastKf.position[0], lastKf.position[1], lastKf.position[2]);
+      liveMapCameraMarker.name = 'cameraMarker';
+      liveMapGroup.add(liveMapCameraMarker);
+    }
+
+    function resetLiveMapVisuals() {
+      liveMapPositions = [];
+      liveMapColors = [];
+      liveMapCameraPoses = [];
+      liveMapTotalPoints = 0;
+      liveMapActive = false;
+
+      if (liveMapGroup) {
+        // Remove all children
+        while (liveMapGroup.children.length > 0) {
+          const child = liveMapGroup.children[0];
+          liveMapGroup.remove(child);
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        }
+      }
+      liveMapPoints = null;
+      liveMapTrajectory = null;
+      liveMapCameraMarker = null;
+
+      const el = (id) => document.getElementById(id);
+      if (el('lm-points')) el('lm-points').textContent = '0';
+      if (el('lm-keyframes')) el('lm-keyframes').textContent = '0';
+      if (el('lm-tracking')) { el('lm-tracking').textContent = '--'; el('lm-tracking').style.color = '#888'; }
+      if (el('lm-fps')) el('lm-fps').textContent = '0';
+      if (el('lm-node')) el('lm-node').textContent = '--';
+    }
 
     function initThreeJS() {
       const container = document.getElementById('map-container');

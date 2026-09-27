@@ -35,6 +35,7 @@ from coverage_grid import CoverageGrid
 from scan_session import ScanSession
 from mapping_pipeline import MappingPipeline
 from fusion_engine import FusionEngine
+from reconstruction.incremental_mapper import IncrementalMapper, MapperConfig, TrackingStatus
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -939,6 +940,18 @@ _fusion_engine = FusionEngine(
 # Detection-fusion events waiting for the next dashboard broadcast pass.
 _fusion_alerts: List[dict] = []
 
+# Phase 4 — Incremental 3D mapper (global singleton)
+_incremental_mapper = IncrementalMapper(MapperConfig(
+    max_processing_fps=3.0,
+    keyframe_min_interval_s=0.3,
+    keyframe_motion_threshold=15.0,
+    keyframe_feature_threshold=30,
+    orb_num_features=500,
+    max_map_points=500_000,
+    voxel_size=0.02,
+    max_queue_size=5,
+))
+
 
 def _broadcast_fusion_alert_later(alert: dict) -> None:
     """Queue a fusion event for the next broadcast cycle."""
@@ -1524,6 +1537,58 @@ async def _ws_handler(
                 # ── Mapping pipeline camera ingestion (Step 8) ───────────
                 _mapping_pipeline.process_camera_frame(mobile_node_id, frame_data)
 
+                # ── Phase 4: Incremental 3D mapper ingestion ─────────────
+                if _incremental_mapper.is_active and frame_data:
+                    async def _run_incremental_map(nid: str, fdata: str, fts: float) -> None:
+                        """Run incremental mapping in a thread pool to avoid blocking WS."""
+                        import asyncio as _aio
+                        try:
+                            result = await _aio.to_thread(
+                                _incremental_mapper.ingest_frame, fdata, nid, fts
+                            )
+                        except Exception as e:
+                            log("MAP", f"Incremental map error: {e}")
+                            return
+                        if result is None:
+                            return
+                        status = result.get("tracking_status", "")
+                        if status == TrackingStatus.FRAME_SKIPPED:
+                            return  # Don't broadcast skipped frames
+
+                        # Broadcast MAP_UPDATE to all dashboard clients
+                        update_json = json.dumps(result)
+                        stale_map: list = []
+                        for client in list(_connected):
+                            try:
+                                await client.send_text(update_json)
+                            except Exception:
+                                stale_map.append(client)
+                        for client in stale_map:
+                            _connected.discard(client)
+
+                        # Also send incremental MAP_POINTS if new points exist
+                        new_pts = _incremental_mapper.get_new_points(max_points=1000)
+                        if new_pts:
+                            pts_msg = json.dumps({
+                                "type": "MAP_POINTS",
+                                "node_id": nid,
+                                "points": new_pts,
+                                "timestamp": time.time(),
+                            })
+                            for client in list(_connected):
+                                try:
+                                    await client.send_text(pts_msg)
+                                except Exception:
+                                    pass
+
+                        if status not in (TrackingStatus.FRAME_SKIPPED, TrackingStatus.NO_KEYFRAME):
+                            log("MAP", f"📍 {nid}: {status} pts={result.get('points_total', 0)} "
+                                      f"kf={result.get('keyframe_count', 0)}")
+
+                    asyncio.create_task(_run_incremental_map(
+                        mobile_node_id, frame_data, frame_timestamp
+                    ))
+
                 # ── Live feed: relay raw frame to dashboards ───
                 if _node_mode == "live_feed" and frame_data:
                     live_payload = json.dumps({
@@ -1611,6 +1676,44 @@ async def _ws_handler(
                 })
                 try:
                     await websocket.send_text(world_json)
+                except Exception:
+                    pass
+                continue
+
+            # ── Phase 4: Incremental mapper control ──────────────────
+            if msg_type == "map_start":
+                _incremental_mapper.start()
+                log("MAP", "🗺 Incremental mapping STARTED")
+                continue
+
+            if msg_type == "map_stop":
+                _incremental_mapper.stop()
+                log("MAP", "🗺 Incremental mapping STOPPED")
+                continue
+
+            if msg_type == "map_reset":
+                _incremental_mapper.reset()
+                reset_msg = json.dumps({
+                    "type": "MAP_UPDATE",
+                    "tracking_status": TrackingStatus.MAPPER_RESET,
+                    "points_total": 0,
+                    "keyframe_count": 0,
+                    "timestamp": time.time(),
+                })
+                try:
+                    await websocket.send_text(reset_msg)
+                except Exception:
+                    pass
+                log("MAP", "🗺 Incremental mapper RESET")
+                continue
+
+            if msg_type == "map_state":
+                map_json = json.dumps({
+                    "type": "MAP_STATE",
+                    **_incremental_mapper.get_map_snapshot(),
+                })
+                try:
+                    await websocket.send_text(map_json)
                 except Exception:
                     pass
                 continue
@@ -2044,6 +2147,30 @@ async def main() -> None:
     @app.get("/api/jobs")
     async def get_all_jobs():
         return {"jobs": reconstruction_orchestrator.list_jobs()}
+
+    # ── Phase 4: Incremental Map API ──────────────────────────────
+    @app.get("/api/map/state")
+    async def get_map_state():
+        """Return the current incremental map state snapshot."""
+        return _incremental_mapper.get_map_snapshot()
+
+    @app.post("/api/map/start")
+    async def start_mapping():
+        """Start incremental mapping."""
+        _incremental_mapper.start()
+        return {"status": "STARTED", "active": True}
+
+    @app.post("/api/map/stop")
+    async def stop_mapping():
+        """Stop incremental mapping (preserves map)."""
+        _incremental_mapper.stop()
+        return {"status": "STOPPED", "active": False}
+
+    @app.post("/api/map/reset")
+    async def reset_mapping():
+        """Reset the incremental map."""
+        _incremental_mapper.reset()
+        return {"status": "RESET", "active": _incremental_mapper.is_active, "points": 0}
 
     @app.get("/api/detections/3d")
     async def get_detections_3d(workspace: str, frame: str):
