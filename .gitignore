@@ -29,3 +29,6 @@ Thumbs.db
 
 # Pytest
 .pytest_cache/
+
+# Uploads
+workspace_uploads/

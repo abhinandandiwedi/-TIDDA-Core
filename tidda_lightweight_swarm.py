@@ -17,6 +17,8 @@ import signal
 import ssl
 import sys
 import time
+import shutil
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -36,19 +38,19 @@ from fusion_engine import FusionEngine
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, File, UploadFile, Form
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
 except ImportError:
-    print("[SYSTEM] fastapi/uvicorn not found — installing...")
+    print("[SYSTEM] fastapi/uvicorn/multipart not found — installing...")
     import subprocess
     subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "fastapi", "uvicorn", "starlette"],
+        [sys.executable, "-m", "pip", "install", "fastapi", "uvicorn", "starlette", "python-multipart"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, File, UploadFile, Form
     from fastapi.staticfiles import StaticFiles
     from fastapi.middleware.cors import CORSMiddleware
     import uvicorn
@@ -1991,6 +1993,7 @@ async def main() -> None:
         background_tasks: BackgroundTasks,
         req: Optional[StartReconstructionRequest] = None,
         video_path: Optional[str] = None,
+        file: Optional[UploadFile] = File(None),
     ):
         target_path = None
         if req and req.video_path:
@@ -1998,10 +2001,23 @@ async def main() -> None:
         elif video_path:
             target_path = video_path
 
+        if file and file.filename:
+            # Handle uploaded file
+            upload_dir = Path("workspace_uploads")
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            safe_filename = "".join([c for c in file.filename if c.isalpha() or c.isdigit() or c in (' ', '.', '_', '-')]).rstrip()
+            if not safe_filename:
+                safe_filename = "uploaded_video.mp4"
+            unique_name = f"{int(time.time())}_{safe_filename}"
+            saved_path = upload_dir / unique_name
+            with open(saved_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            target_path = str(saved_path)
+
         if not target_path:
             raise HTTPException(
                 status_code=400,
-                detail="video_path must be provided in JSON body or query param",
+                detail="video_path must be provided in JSON body, query param, or via file upload",
             )
 
         try:

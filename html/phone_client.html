@@ -274,7 +274,7 @@ label.field input:focus {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 .mode-btn {
@@ -312,6 +312,12 @@ label.field input:focus {
   background: rgba(34,197,94,0.08);
   color: var(--green);
   box-shadow: 0 0 12px rgba(34,197,94,0.25);
+}
+.mode-btn.active-reconstruct {
+  border-color: #a855f7;
+  background: rgba(168,85,247,0.08);
+  color: #a855f7;
+  box-shadow: 0 0 12px rgba(168,85,247,0.25);
 }
 .mode-icon {
   font-size: 1.3rem;
@@ -374,6 +380,11 @@ label.field input:focus {
       <span class="mode-icon">📹</span>
       LIVE FEED
       <div class="mode-label">Video PoC</div>
+    </button>
+    <button class="mode-btn" id="mode-reconstruct" onclick="setMode('reconstruct')">
+      <span class="mode-icon">🧊</span>
+      RECONSTRUCT
+      <div class="mode-label">Real 3D Scan</div>
     </button>
   </div>
 </div>
@@ -464,6 +475,30 @@ label.field input:focus {
     <video id="cam-preview" autoplay playsinline muted></video>
     <canvas id="cam-canvas" style="display:none;"></canvas>
   </div>
+</div>
+
+<!-- ═══════════════ RECONSTRUCTION CARD ═══════════════ -->
+<div class="card" id="card-reconstruct" style="display: none;">
+  <div class="card-title">Phase 2: Reconstruction</div>
+
+  <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+    <button class="btn btn-danger" id="btn-rec-start" style="flex:1;">Start Rec</button>
+    <button class="btn btn-primary" id="btn-rec-stop" style="flex:1;" disabled>Stop Rec</button>
+  </div>
+
+  <div class="video-wrap" id="rec-preview-wrap" style="display: none; margin-bottom: 12px;">
+    <span class="cam-label" style="background: rgba(168,85,247,0.55); color: white;">RECORDED</span>
+    <video id="rec-preview" controls playsinline></video>
+  </div>
+
+  <button class="btn btn-primary" id="btn-rec-upload" style="display: none; margin-bottom: 12px;">Upload & Reconstruct</button>
+
+  <div class="status-badge disconnected" id="rec-status-badge" style="display: none; width: 100%; justify-content: center;">
+    <span class="dot"></span>
+    <span id="rec-status-text">Status</span>
+  </div>
+
+  <a id="link-dashboard" href="/" target="_blank" class="btn btn-primary" style="display: none; text-align: center; text-decoration: none; margin-top: 8px; background: linear-gradient(135deg, #a855f7, #c084fc); box-shadow: 0 4px 20px rgba(168,85,247,0.3);">Open Dashboard</a>
 </div>
 
 <!-- ═══════════════ JAVASCRIPT ═══════════════ -->
@@ -792,13 +827,14 @@ label.field input:focus {
     currentMode = mode;
 
     // Update button visuals
-    ['mapping', 'sentry', 'live_feed'].forEach(m => {
+    ['mapping', 'sentry', 'live_feed', 'reconstruct'].forEach(m => {
       const btn = $id('mode-' + m);
       if (!btn) return;
       btn.className = 'mode-btn';
       if (m === mode) {
         if (m === 'sentry') btn.classList.add('active-sentry');
         else if (m === 'live_feed') btn.classList.add('active-live');
+        else if (m === 'reconstruct') btn.classList.add('active-reconstruct');
         else btn.classList.add('active');
       }
     });
@@ -818,7 +854,16 @@ label.field input:focus {
       } else if (mode === 'live_feed') {
         startGeo();
         enableCamera();
+      } else if (mode === 'reconstruct') {
+        stopGeo();
+        enableCamera();
       }
+    }
+
+    // Show/hide reconstruct UI
+    const cardReconstruct = $id('card-reconstruct');
+    if (cardReconstruct) {
+      cardReconstruct.style.display = (mode === 'reconstruct') ? 'block' : 'none';
     }
   };
 
@@ -873,6 +918,149 @@ label.field input:focus {
   camToggle.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); camToggle.click(); }
   });
+
+  /* ── Recording & Upload Logic (Phase 2) ─────────────────────── */
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordedBlob = null;
+
+  const btnRecStart = $id("btn-rec-start");
+  const btnRecStop = $id("btn-rec-stop");
+  const recPreviewWrap = $id("rec-preview-wrap");
+  const recPreview = $id("rec-preview");
+  const btnRecUpload = $id("btn-rec-upload");
+  const recStatusBadge = $id("rec-status-badge");
+  const recStatusText = $id("rec-status-text");
+  const linkDashboard = $id("link-dashboard");
+
+  let jobPollTimer = null;
+
+  function setRecStatus(state, msg) {
+    recStatusBadge.style.display = "inline-flex";
+    recStatusBadge.className = "status-badge";
+    if (state === "error") {
+      recStatusBadge.classList.add("disconnected");
+    } else if (state === "success") {
+      recStatusBadge.classList.add("connected");
+    } else {
+      recStatusBadge.classList.add("connecting");
+    }
+    recStatusText.textContent = msg;
+  }
+
+  btnRecStart.addEventListener("click", () => {
+    if (!cameraStream) {
+      showError("Camera is not active. Enable the camera first.");
+      return;
+    }
+    recordedChunks = [];
+    try {
+      mediaRecorder = new MediaRecorder(cameraStream, { mimeType: 'video/webm;codecs=vp8,opus' });
+    } catch (e) {
+      mediaRecorder = new MediaRecorder(cameraStream); // fallback
+    }
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = () => {
+      recordedBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+      recPreview.src = URL.createObjectURL(recordedBlob);
+      recPreviewWrap.style.display = "block";
+      btnRecUpload.style.display = "block";
+    };
+
+    mediaRecorder.start();
+    btnRecStart.disabled = true;
+    btnRecStop.disabled = false;
+    recPreviewWrap.style.display = "none";
+    btnRecUpload.style.display = "none";
+    recStatusBadge.style.display = "none";
+    linkDashboard.style.display = "none";
+    clearError();
+  });
+
+  btnRecStop.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      btnRecStart.disabled = false;
+      btnRecStop.disabled = true;
+    }
+  });
+
+  btnRecUpload.addEventListener("click", async () => {
+    if (!recordedBlob) return;
+
+    btnRecUpload.disabled = true;
+    setRecStatus("working", "UPLOADING...");
+
+    const formData = new FormData();
+    formData.append("file", recordedBlob, "recording.webm");
+
+    // Determine API base URL. If relative works, we use it. If served from same host:
+    let apiBase = "";
+    if (location.protocol.startsWith("http")) {
+      apiBase = location.protocol + "//" + location.host;
+    } else {
+      // fallback if running from file:// which shouldn't be the case
+      const wsUrl = inpUrl.value.trim();
+      if (wsUrl.startsWith("ws")) {
+        apiBase = wsUrl.replace("ws", "http").split("/ws")[0];
+      }
+    }
+
+    try {
+      const response = await fetch(apiBase + "/api/reconstruct", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const txt = await response.text();
+        throw new Error(txt);
+      }
+
+      const data = await response.json();
+      const jobId = data.job_id;
+      setRecStatus("working", "QUEUED (Job: " + jobId + ")");
+      pollJobStatus(apiBase, jobId);
+
+    } catch (err) {
+      setRecStatus("error", "UPLOAD FAILED");
+      showError("Upload Error: " + err.message);
+      btnRecUpload.disabled = false;
+    }
+  });
+
+  function pollJobStatus(apiBase, jobId) {
+    if (jobPollTimer) clearInterval(jobPollTimer);
+
+    jobPollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(apiBase + "/api/job/" + jobId);
+        if (!res.ok) throw new Error("Status fetch failed");
+        const job = await res.json();
+
+        const state = job.status;
+        const msg = job.message || state;
+
+        if (state === "COMPLETED") {
+          clearInterval(jobPollTimer);
+          setRecStatus("success", "COMPLETED: " + msg);
+          linkDashboard.href = apiBase + "/"; // assuming dashboard is at root
+          linkDashboard.style.display = "block";
+        } else if (state === "FAILED") {
+          clearInterval(jobPollTimer);
+          setRecStatus("error", "FAILED: " + msg);
+          btnRecUpload.disabled = false;
+        } else {
+          setRecStatus("working", state + ": " + msg);
+        }
+      } catch (err) {
+        // Just log, let next poll try
+        console.warn("Poll err:", err);
+      }
+    }, 2000);
+  }
 
 })();
 </script>
