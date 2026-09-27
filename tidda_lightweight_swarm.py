@@ -1492,7 +1492,7 @@ async def _ws_handler(
                                           f"conf={result.get('confidence', 0.0):.2f}  "
                                           f"count={result.get('person_count', 0)}"
                                           + (f"  entity={fused_entity['entity_id']}" if fused_entity else "  GPS=unavailable"))
-                            
+
                             stale_clients: list = []
                             for client in list(_connected):
                                 try:
@@ -2045,6 +2045,48 @@ async def main() -> None:
     async def get_all_jobs():
         return {"jobs": reconstruction_orchestrator.list_jobs()}
 
+    @app.get("/api/detections/3d")
+    async def get_detections_3d(workspace: str, frame: str):
+        workspace_path = Path(workspace)
+        if not workspace_path.exists():
+            raise HTTPException(status_code=404, detail="Workspace not found")
+
+        frame_path = workspace_path / "frames" / frame
+
+        if not frame_path.exists():
+            raise HTTPException(status_code=404, detail="Frame not found in reconstruction workspace")
+
+        # Run YOLO on the frame
+        global _sentry_detector
+        if _sentry_detector is None:
+            from sentry_detector import SentryDetector
+            _sentry_detector = SentryDetector()
+
+        import base64
+        with open(frame_path, "rb") as f:
+            frame_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        # It's an async function, we can await
+        import asyncio
+        result = await asyncio.to_thread(_sentry_detector.detect_persons, frame_b64)
+
+        if not result or result.get("person_count", 0) == 0:
+            return {"detections": []}
+
+        # Run 3D localization
+        from reconstruction.localization_3d import Localization3D
+        sparse_dir = workspace_path / "sparse"
+        dense_dir = workspace_path / "dense"
+        localizer = Localization3D(sparse_dir, dense_dir)
+
+        localized_objects = []
+        for i, bbox in enumerate(result.get("bboxes", [])):
+            track_id = f"person_{i}"
+            res = localizer.localize(frame, bbox, "person", result.get("confidence", 0.0), track_id)
+            localized_objects.append(res)
+
+        return {"detections": localized_objects}
+
     @app.websocket("/ws/ui")
     async def websocket_ui(websocket: WebSocket):
         await _ws_handler(websocket)
@@ -2064,17 +2106,17 @@ async def main() -> None:
         config.ssl_keyfile = TLS_KEY_FILE
 
     server = uvicorn.Server(config)
-    
+
     try:
         log("SYSTEM", "All systems online — waiting for GCS dashboard connections…")
         log("SYSTEM", "Press Ctrl+C to shut down cleanly.")
-        
+
         # We start the server as a concurrent task so we can still await our shutdown event
         server_task = asyncio.create_task(server.serve())
-        
+
         # Block until shutdown is requested
         await _shutdown_event.wait()
-        
+
         # Trigger server shutdown gracefully
         server.should_exit = True
         await server_task
@@ -2084,7 +2126,7 @@ async def main() -> None:
     finally:
         # ── Clean shutdown sequence ───────────────────────────────
         log("SYSTEM", "Shutdown sequence initiated…")
-        
+
         server.should_exit = True
 
         # Close all active dashboard connections gracefully

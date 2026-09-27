@@ -3554,6 +3554,12 @@
                         <path d="M2 12l10 5 10-5" />
                       </svg>
                     </button>
+                    <button class="map-tool-btn" title="3D Detection Test" onclick="test3DDetection()" style="color: var(--cyan);">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
                   </div>
                   <!-- Layers Panel -->
                   <div class="layers-panel">
@@ -6661,7 +6667,63 @@
             sendAIQuery(val);
           }
         });
+    }
+
+    // ── 3D LOCALIZATION TEST ──
+    window.test3DDetection = async function() {
+      addCommsEntry('system', '[SYSTEM] Requesting 3D Localizations...');
+      try {
+        const res = await fetch('/api/detections/3d?workspace=workspace_house_v1_demo&frame=000001.jpg');
+        const data = await res.json();
+
+        if (!data.detections || data.detections.length === 0) {
+          addCommsEntry('alert', '[SYSTEM] No detections found in demo frame.');
+          return;
+        }
+
+        data.detections.forEach((d) => {
+          if (d.status === 'LOCALIZED' && STATE.pointCloud) {
+            addCommsEntry('system', `[LOCALIZED] ${d.track_id} (${d.class}) @ Z: ${d.depth_m.toFixed(2)}m`);
+
+            // Create a target sphere
+            const sphereGeo = new THREE.SphereGeometry(1.5, 16, 16);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0xff0044, wireframe: true });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+
+            // Apply transformations to match the PointCloud world coordinates
+            sphere.position.set(d.world_position.x, d.world_position.y, d.world_position.z);
+
+            // Add directly to point cloud so it inherits centering & scaling & rotation
+            STATE.pointCloud.add(sphere);
+
+            // Add a label
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, 256, 128);
+            ctx.font = '24px monospace';
+            ctx.fillStyle = '#ff0044';
+            ctx.fillText(`TARGET: ${d.class.toUpperCase()}`, 10, 40);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`ID: ${d.track_id}`, 10, 70);
+            ctx.fillText(`X:${d.world_position.x.toFixed(1)} Y:${d.world_position.y.toFixed(1)} Z:${d.world_position.z.toFixed(1)}`, 10, 100);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            const spriteMat = new THREE.SpriteMaterial({ map: tex });
+            const sprite = new THREE.Sprite(spriteMat);
+            sprite.scale.set(5, 2.5, 1);
+            sprite.position.copy(sphere.position);
+            sprite.position.y += 3.0; // Place label above target
+            STATE.pointCloud.add(sprite);
+          } else {
+            addCommsEntry('alert', `[FAILED] ${d.track_id} status: ${d.status}`);
+          }
+        });
+      } catch (e) {
+        addCommsEntry('alert', `[ERROR] 3D API Failed: ${e.message}`);
       }
+    };
 
     })(); // end wireAllInertElements
   </script>
