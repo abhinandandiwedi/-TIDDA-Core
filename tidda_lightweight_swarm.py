@@ -35,7 +35,17 @@ from coverage_grid import CoverageGrid
 from scan_session import ScanSession
 from mapping_pipeline import MappingPipeline
 from fusion_engine import FusionEngine
-from reconstruction.incremental_mapper import IncrementalMapper, MapperConfig, TrackingStatus
+from reconstruction.incremental_mapper import MapperConfig, TrackingStatus
+from reconstruction.cooperative_mapper import CooperativeMapper
+from pydantic import BaseModel
+
+class AlignRequest(BaseModel):
+    source_id: str
+    target_id: str
+
+class RegisterRequest(BaseModel):
+    node_id: str
+
 
 # ── Dependency bootstrap ──────────────────────────────────────────
 try:
@@ -940,17 +950,8 @@ _fusion_engine = FusionEngine(
 # Detection-fusion events waiting for the next dashboard broadcast pass.
 _fusion_alerts: List[dict] = []
 
-# Phase 4 — Incremental 3D mapper (global singleton)
-_incremental_mapper = IncrementalMapper(MapperConfig(
-    max_processing_fps=3.0,
-    keyframe_min_interval_s=0.3,
-    keyframe_motion_threshold=15.0,
-    keyframe_feature_threshold=30,
-    orb_num_features=500,
-    max_map_points=500_000,
-    voxel_size=0.02,
-    max_queue_size=5,
-))
+# Phase 5 — Cooperative 3D mapper (global singleton)
+_cooperative_mapper = CooperativeMapper()
 
 
 def _broadcast_fusion_alert_later(alert: dict) -> None:
@@ -1537,14 +1538,31 @@ async def _ws_handler(
                 # ── Mapping pipeline camera ingestion (Step 8) ───────────
                 _mapping_pipeline.process_camera_frame(mobile_node_id, frame_data)
 
-                # ── Phase 4: Incremental 3D mapper ingestion ─────────────
-                if _incremental_mapper.is_active and frame_data:
-                    async def _run_incremental_map(nid: str, fdata: str, fts: float) -> None:
+                # ── Phase 4.5 & 5: Incremental 3D mapper ingestion ─────────────
+                mapper = _cooperative_mapper.get_node_map(mobile_node_id)
+                if not mapper:
+                    mapper = _cooperative_mapper.register_node(mobile_node_id, MapperConfig(
+                        max_processing_fps=3.0,
+                        keyframe_min_interval_s=0.3,
+                        keyframe_motion_threshold=15.0,
+                        keyframe_feature_threshold=30,
+                        orb_num_features=1000,
+                        orb_scale_factor=1.2,
+                        orb_levels=8,
+                        match_cross_check=True,
+                        ransac_threshold=2.0,
+                        max_map_points=500_000,
+                        voxel_size=0.02,
+                        max_queue_size=5,
+                    ))
+
+                if mapper.is_active and frame_data:
+                    async def _run_incremental_map(nid: str, fdata: str, fts: float, node_mapper) -> None:
                         """Run incremental mapping in a thread pool to avoid blocking WS."""
                         import asyncio as _aio
                         try:
                             result = await _aio.to_thread(
-                                _incremental_mapper.ingest_frame, fdata, nid, fts
+                                node_mapper.ingest_frame, fdata, nid, fts
                             )
                         except Exception as e:
                             log("MAP", f"Incremental map error: {e}")
@@ -1567,7 +1585,7 @@ async def _ws_handler(
                             _connected.discard(client)
 
                         # Also send incremental MAP_POINTS if new points exist
-                        new_pts = _incremental_mapper.get_new_points(max_points=1000)
+                        new_pts = node_mapper.get_new_points(max_points=1000)
                         if new_pts:
                             pts_msg = json.dumps({
                                 "type": "MAP_POINTS",
@@ -1586,7 +1604,7 @@ async def _ws_handler(
                                       f"kf={result.get('keyframe_count', 0)}")
 
                     asyncio.create_task(_run_incremental_map(
-                        mobile_node_id, frame_data, frame_timestamp
+                        mobile_node_id, frame_data, frame_timestamp, mapper
                     ))
 
                 # ── Live feed: relay raw frame to dashboards ───
@@ -1682,17 +1700,19 @@ async def _ws_handler(
 
             # ── Phase 4: Incremental mapper control ──────────────────
             if msg_type == "map_start":
-                _incremental_mapper.start()
+                for node_id in _cooperative_mapper.get_all_nodes():
+                    _cooperative_mapper.get_node_map(node_id).start()
                 log("MAP", "🗺 Incremental mapping STARTED")
                 continue
 
             if msg_type == "map_stop":
-                _incremental_mapper.stop()
+                for node_id in _cooperative_mapper.get_all_nodes():
+                    _cooperative_mapper.get_node_map(node_id).stop()
                 log("MAP", "🗺 Incremental mapping STOPPED")
                 continue
 
             if msg_type == "map_reset":
-                _incremental_mapper.reset()
+                _cooperative_mapper.reset_global_map()
                 reset_msg = json.dumps({
                     "type": "MAP_UPDATE",
                     "tracking_status": TrackingStatus.MAPPER_RESET,
@@ -1710,7 +1730,7 @@ async def _ws_handler(
             if msg_type == "map_state":
                 map_json = json.dumps({
                     "type": "MAP_STATE",
-                    **_incremental_mapper.get_map_snapshot(),
+                    "cooperative_state": _cooperative_mapper.get_global_map_snapshot(),
                 })
                 try:
                     await websocket.send_text(map_json)
@@ -2148,29 +2168,49 @@ async def main() -> None:
     async def get_all_jobs():
         return {"jobs": reconstruction_orchestrator.list_jobs()}
 
-    # ── Phase 4: Incremental Map API ──────────────────────────────
+    # ── Phase 4 & 5: Incremental & Cooperative Map API ──────────
     @app.get("/api/map/state")
     async def get_map_state():
-        """Return the current incremental map state snapshot."""
-        return _incremental_mapper.get_map_snapshot()
+        return _cooperative_mapper.get_global_map_snapshot()
 
     @app.post("/api/map/start")
     async def start_mapping():
-        """Start incremental mapping."""
-        _incremental_mapper.start()
-        return {"status": "STARTED", "active": True}
+        for nid in _cooperative_mapper.get_all_nodes():
+            _cooperative_mapper.get_node_map(nid).start()
+        return {"status": "STARTED"}
 
     @app.post("/api/map/stop")
     async def stop_mapping():
-        """Stop incremental mapping (preserves map)."""
-        _incremental_mapper.stop()
-        return {"status": "STOPPED", "active": False}
+        for nid in _cooperative_mapper.get_all_nodes():
+            _cooperative_mapper.get_node_map(nid).stop()
+        return {"status": "STOPPED"}
 
     @app.post("/api/map/reset")
     async def reset_mapping():
-        """Reset the incremental map."""
-        _incremental_mapper.reset()
-        return {"status": "RESET", "active": _incremental_mapper.is_active, "points": 0}
+        _cooperative_mapper.reset_global_map()
+        return {"status": "RESET"}
+
+    @app.get("/api/mapping/nodes")
+    async def get_mapping_nodes():
+        return {"nodes": _cooperative_mapper.get_all_nodes()}
+
+    @app.get("/api/mapping/global")
+    async def get_global_map():
+        return _cooperative_mapper.get_global_map_snapshot()
+
+    @app.post("/api/mapping/align")
+    async def align_maps(req: AlignRequest):
+        return _cooperative_mapper.fuse_maps(req.source_id, req.target_id)
+
+    @app.post("/api/mapping/nodes/register")
+    async def register_node(req: RegisterRequest):
+        _cooperative_mapper.register_node(req.node_id)
+        return {"status": "REGISTERED", "node_id": req.node_id}
+
+    @app.post("/api/mapping/nodes/unregister")
+    async def unregister_node(req: RegisterRequest):
+        _cooperative_mapper.unregister_node(req.node_id)
+        return {"status": "UNREGISTERED", "node_id": req.node_id}
 
     @app.get("/api/detections/3d")
     async def get_detections_3d(workspace: str, frame: str):

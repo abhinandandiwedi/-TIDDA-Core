@@ -459,6 +459,9 @@ class IncrementalMapper:
             intrinsics=self._make_intrinsics(w, h),
             num_tracked_features=num_features,
             tracking_status=tracking_status,
+            gray_image=gray.copy(),
+            keypoints=kps,
+            descriptors=descs,
         )
         self._keyframes.append(kf)
         with self._lock:
