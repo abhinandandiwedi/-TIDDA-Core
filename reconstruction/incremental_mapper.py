@@ -131,6 +131,7 @@ class MapperStats:
             "tracking_failures": self.tracking_failures,
             "consecutive_failures": getattr(self, "consecutive_failures", 0),
             "successful_recoveries": getattr(self, "successful_recoveries", 0),
+            "feature_mode": getattr(self, "feature_mode", "ORB"),
         }
 
 
@@ -154,6 +155,8 @@ class MapperConfig:
     match_ratio_threshold: float = 0.80           # Lowe's ratio test threshold
     match_cross_check: bool = True
     min_matches_for_pose: int = 15                # Min good matches for Essential matrix
+    # Perception / Feature Mode (Phase 7: default remains ORB for ~real-time latency)
+    feature_mode: str = "orb"                    # "orb" (default, ~real-time CPU) or "advanced_aliked" (explicit high-quality keyframes)
     
     # RANSAC parameters
     ransac_threshold: float = 2.0                 # RANSAC reprojection error threshold

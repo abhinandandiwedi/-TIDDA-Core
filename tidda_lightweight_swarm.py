@@ -2095,10 +2095,13 @@ async def main() -> None:
 
     @app.get("/api/health")
     async def get_health():
+        feat_env = os.environ.get("TIDDA_FEATURE_METHOD", "sift").lower()
+        feature_mode = "ALIKED + LIGHTGLUE" if "aliked" in feat_env or "lightglue" in feat_env else "SIFT"
         return {
             "status": "ONLINE",
             "swarm_count": len(swarm),
             "mobile_nodes": _mobile_registry.count(),
+            "feature_mode": feature_mode,
         }
 
     @app.get("/api/models")
@@ -2143,9 +2146,10 @@ async def main() -> None:
                 detail="video_path must be provided in JSON body, query param, or via file upload",
             )
 
+        feat_method = (req.feature_method if req and req.feature_method else os.environ.get("TIDDA_FEATURE_METHOD", "sift"))
         try:
             job_id, job_record = reconstruction_orchestrator.start_job(
-                target_path, fps=2.0
+                target_path, fps=2.0, feature_method=feat_method
             )
         except (FileNotFoundError, ValueError) as err:
             raise HTTPException(status_code=400, detail=str(err))

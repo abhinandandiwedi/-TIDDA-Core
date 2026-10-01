@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import subprocess
 import shutil
+from typing import Optional
 
 from reconstruction.features import extract_features
 from reconstruction.matching import match_features
@@ -17,7 +18,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_COLMAP = str(REPO_ROOT / "colmap_hip_build" / "build" / "src" / "colmap" / "exe" / "colmap")
 COLMAP_EXEC = os.environ.get("COLMAP_EXEC", DEFAULT_COLMAP)
 
-def run_colmap_pipeline(frames_dir: Path) -> Path:
+def run_colmap_pipeline(frames_dir: Path, feature_method: Optional[str] = None) -> Path:
+    method = (feature_method or os.environ.get("TIDDA_FEATURE_METHOD", "sift")).lower().strip()
     workspace = frames_dir.parent
     database_path = workspace / "database.db"
     sparse_dir = workspace / "sparse" / "0"
@@ -32,11 +34,13 @@ def run_colmap_pipeline(frames_dir: Path) -> Path:
     sparse_dir.mkdir(parents=True, exist_ok=True)
     output_ply.parent.mkdir(parents=True, exist_ok=True)
 
-    print("--- 1. Feature Extraction ---")
-    extract_features(database_path, frames_dir)
+    print(f"--- 1. Feature Extraction (Method: {method.upper()}) ---")
+    extract_method = "aliked" if "aliked" in method else "sift"
+    extract_features(database_path, frames_dir, method=extract_method)
     
-    print("--- 2. Feature Matching ---")
-    match_features(database_path)
+    print(f"--- 2. Feature Matching (Method: {method.upper()}) ---")
+    match_method = "aliked_lightglue" if "aliked" in method or "lightglue" in method else "sift"
+    match_features(database_path, method=match_method)
 
     print("--- 3. Sparse Mapping ---")
     cmd = [

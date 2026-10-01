@@ -63,10 +63,16 @@ class ReconstructionOrchestrator:
 
         return resolved
 
-    def start_job(self, video_path_str: str, fps: float = 2.0) -> Tuple[str, Dict[str, Any]]:
+    def start_job(
+        self,
+        video_path_str: str,
+        fps: float = 2.0,
+        feature_method: Optional[str] = None,
+    ) -> Tuple[str, Dict[str, Any]]:
         """Validate input and register a new job in QUEUED status."""
         resolved_path = self.validate_video_path(video_path_str)
         job_id = f"job_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        method = (feature_method or os.environ.get("TIDDA_FEATURE_METHOD", "sift")).lower().strip()
 
         with self._lock:
             job_record = {
@@ -75,6 +81,7 @@ class ReconstructionOrchestrator:
                 "message": "Reconstruction job queued",
                 "video_path": str(resolved_path),
                 "fps": fps,
+                "feature_method": method,
                 "created_at": time.time(),
                 "started_at": None,
                 "completed_at": None,
@@ -123,11 +130,12 @@ class ReconstructionOrchestrator:
             frames_dir = sample_frames(video_path, fps=fps)
             workspace = frames_dir.parent
 
-            # 2. Sparse SfM Reconstruction (SIFT + Exhaustive + Mapper on CPU)
+            # 2. Sparse SfM Reconstruction (SIFT or ALIKED+LightGlue)
+            feature_method = self.jobs[job_id].get("feature_method", "sift")
             with self._lock:
-                self.jobs[job_id]["message"] = "Running COLMAP sparse reconstruction..."
-            logger.info(f"[{job_id}] Running COLMAP sparse reconstruction in {workspace}...")
-            sparse_ply_path = run_colmap_pipeline(frames_dir)
+                self.jobs[job_id]["message"] = f"Running COLMAP sparse reconstruction ({feature_method.upper()})..."
+            logger.info(f"[{job_id}] Running COLMAP sparse reconstruction ({feature_method}) in {workspace}...")
+            sparse_ply_path = run_colmap_pipeline(frames_dir, feature_method=feature_method)
 
             # 3. Dense Reconstruction (Undistort + HIP PatchMatch on AMD GPU + Stereo Fusion)
             with self._lock:

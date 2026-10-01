@@ -182,7 +182,9 @@ from reconstruction.orchestrator import reconstruction_orchestrator
 @app.post("/api/reconstruct", response_model=JobResponse)
 async def start_reconstruction(req: StartReconstructionRequest, background_tasks: BackgroundTasks):
     try:
-        job_id, job_record = reconstruction_orchestrator.start_job(req.video_path, fps=2.0)
+        job_id, job_record = reconstruction_orchestrator.start_job(
+            req.video_path, fps=2.0, feature_method=req.feature_method
+        )
     except (FileNotFoundError, ValueError) as err:
         raise HTTPException(status_code=400, detail=str(err))
 

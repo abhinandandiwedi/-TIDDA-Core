@@ -31,9 +31,15 @@ def run():
     frames_dir = sample_frames(video_path, fps=2.0)
     workspace = frames_dir.parent
     
-    print("Running COLMAP Sparse pipeline...")
+    method = os.environ.get("TIDDA_FEATURE_METHOD", "sift")
+    if len(sys.argv) > 2 and sys.argv[2].startswith("--method="):
+        method = sys.argv[2].split("=")[1]
+    elif len(sys.argv) > 2 and sys.argv[2] in ("aliked", "sift", "aliked_lightglue"):
+        method = sys.argv[2]
+
+    print(f"Running COLMAP Sparse pipeline (Method: {method})...")
     try:
-        sparse_ply_path = run_colmap_pipeline(frames_dir)
+        sparse_ply_path = run_colmap_pipeline(frames_dir, feature_method=method)
     except Exception as e:
         print(f"ERROR: Sparse reconstruction failed: {e}")
         sys.exit(1)

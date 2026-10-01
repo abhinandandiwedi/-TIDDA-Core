@@ -3357,6 +3357,10 @@
         </div>
       </div>
       <div class="header-spacer"></div>
+      <div class="header-status" id="feature-mode-container" style="margin-right: 12px; font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+        <span style="opacity: 0.7;">FEATURE MODE:</span>
+        <span id="feature-mode-badge" style="padding: 2px 7px; border-radius: 3px; font-weight: 700; font-size: 10px; background: rgba(0, 229, 255, 0.12); border: 1px solid rgba(0, 229, 255, 0.4); color: var(--cyan);">SIFT</span>
+      </div>
       <div class="header-status">
         <span class="status-dot connected" id="ws-status-dot"></span>
         <span id="ws-status-text" style="color: var(--green);">CONNECTED</span>
@@ -7051,6 +7055,31 @@
         addCommsEntry('alert', `[ERROR] 3D API Failed: ${e.message}`);
       }
     };
+
+    // ── Phase 7 Perception / Feature Mode Technical Indicator ──
+      async function updateFeatureModeIndicator() {
+        try {
+          const res = await fetch('/api/health');
+          if (res.ok) {
+            const data = await res.json();
+            const badge = document.getElementById('feature-mode-badge');
+            if (badge && data.feature_mode) {
+              badge.textContent = data.feature_mode;
+              if (data.feature_mode.includes('ALIKED')) {
+                badge.style.background = 'rgba(0, 255, 136, 0.15)';
+                badge.style.borderColor = 'rgba(0, 255, 136, 0.5)';
+                badge.style.color = '#00FF88';
+              } else {
+                badge.style.background = 'rgba(0, 229, 255, 0.12)';
+                badge.style.borderColor = 'rgba(0, 229, 255, 0.4)';
+                badge.style.color = 'var(--cyan)';
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      updateFeatureModeIndicator();
+      setInterval(updateFeatureModeIndicator, 10000);
 
     })(); // end wireAllInertElements
   </script>
