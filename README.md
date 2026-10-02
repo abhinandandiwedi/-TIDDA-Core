@@ -15,16 +15,62 @@ A software-first command & control platform for autonomous drone swarms and dist
 ---
 
 # Overview
+# TIDDA — Tactical Intelligent Drone Defense Architecture
+
+> **One operator. One command interface. Multiple autonomous agents.**
+
+> **Perceive. Map. Remember. Localize. Coordinate.**
 
 TIDDA (Tactical Intelligent Drone Defense Architecture) is a software-first Command & Control (C2) platform designed for autonomous drone swarms and distributed tactical nodes.
 
-Instead of treating every drone as an isolated system, TIDDA treats the swarm as one coordinated platform that can be supervised by a single operator through a unified tactical interface.
+Instead of treating every drone as an isolated system, TIDDA treats the swarm as a coordinated platform that can be supervised through a unified tactical interface.
 
-The long-term objective is to reduce operator workload while improving situational awareness through distributed telemetry, autonomous coordination, AI-assisted perception, and scalable communication architecture.
+The system combines real-time communication, distributed nodes, AI-assisted visual perception, 3D reconstruction, incremental mapping, cooperative multi-node mapping, persistent spatial memory, and 3D localization.
 
-The project follows a **simulation-first** development philosophy, allowing every subsystem to be validated in software before integration with real hardware.
+The long-term objective is to reduce operator workload while improving situational awareness through distributed telemetry, autonomous coordination, spatial intelligence, and scalable communication architecture.
 
-> **Note:** TIDDA is a research and software engineering project. It does **not** implement autonomous weapon engagement. All threat information is intended to support a human operator.
+TIDDA follows a **software-first and simulation-first development philosophy**, allowing every subsystem to be developed, tested, benchmarked, and validated before integration with real hardware.
+
+> **Safety Note:** TIDDA is a research and software engineering project. It does not implement autonomous weapon engagement. Perception and threat-related information is intended to support a human operator.
+
+---
+
+# Overview
+
+TIDDA is being developed as a modular platform for:
+
+- Autonomous drone swarm coordination
+- Distributed tactical nodes
+- Real-time telemetry
+- AI-assisted visual perception
+- Real-world 3D reconstruction
+- Incremental visual mapping
+- Cooperative multi-node mapping
+- Persistent 3D world modeling
+- 2D-to-3D object localization
+- Persistent camera localization and relocalization
+- Human-supervised command and control
+
+The architecture is built around a continuous spatial intelligence pipeline:
+
+```text
+Perceive
+   ↓
+Map
+   ↓
+Remember
+   ↓
+Localize
+   ↓
+Coordinate
+   ↓
+Map
+   ↓
+Remember
+   ↓
+Localize
+   ↓
+Coordinate
 
 ---
 
