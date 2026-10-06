@@ -3524,7 +3524,7 @@
                   <!-- Real Model Status Badge -->
                   <div id="model-status-badge"
                     style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;border-radius:3px;background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);color:rgba(0,229,255,0.6);letter-spacing:1px;pointer-events:none;display:none;text-align:center;line-height:1.4;">
-                    LOADING 3D MODEL…</div>
+                    TIDDA — REAL-TIME 3D MAPPING DEMO</div>
                   <!-- FSR Controls -->
                   <div id="fsr-controls" style="position:absolute;top:45px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;background:rgba(0,0,0,0.7);padding:6px;border-radius:4px;border:1px solid rgba(0,229,255,0.2);">
                     <button onclick="window.setFsrMode('NATIVE', 1.0)" style="font-size:9px;padding:3px 6px;background:transparent;border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;" id="fsr-btn-NATIVE">NATIVE</button>
@@ -3532,6 +3532,20 @@
                     <button onclick="window.setFsrMode('FSR QUALITY', 0.67)" style="font-size:9px;padding:3px 6px;background:rgba(0,229,255,0.2);border:1px solid rgba(0,229,255,0.5);color:rgba(0,229,255,0.9);cursor:pointer;border-radius:2px;" id="fsr-btn-FSR-QUALITY">QUALITY</button>
                     <button onclick="window.setFsrMode('FSR PERFORMANCE', 0.5)" style="font-size:9px;padding:3px 6px;background:transparent;border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;" id="fsr-btn-FSR-PERFORMANCE">PERFORMANCE</button>
                     <div id="fps-display" style="color:var(--cyan);font-family:monospace;font-size:10px;line-height:20px;margin-left:8px;min-width:70px;text-align:right;">0 FPS</div>
+                  </div>
+                  <!-- Model Tabs -->
+                  <div id="model-tabs" style="position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;">
+                    <button id="tab-iceland" onclick="window.switchModel('iceland')" style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;background:rgba(0,229,255,0.2);border:1px solid rgba(0,229,255,0.5);color:rgba(0,229,255,0.9);cursor:pointer;border-radius:2px;">ICELAND DENSE</button>
+                    <button id="tab-mapping" onclick="window.switchModel('mapping')" style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;background:rgba(0,0,0,0.7);border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;">MAPPING V1</button>
+                    <button id="tab-mapping-v2" onclick="window.switchModel('mapping_v2')" style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;background:rgba(0,0,0,0.7);border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;">MAPPING V2 (SPARSE)</button>
+                    <button id="tab-mapping-v3" onclick="window.switchModel('mapping_v3')" style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;background:rgba(0,0,0,0.7);border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;">MAPPING V3 (DENSE)</button>
+                  </div>
+                  <!-- Mapping Metrics Panel -->
+                  <div id="mapping-metrics-panel" style="position:absolute;bottom:20px;left:20px;z-index:20;background:rgba(0,0,0,0.85);border:1px solid rgba(0,229,255,0.3);padding:12px;color:rgba(0,229,255,0.8);font-family:'JetBrains Mono',monospace;font-size:10px;display:none;width:240px;line-height:1.6;border-radius:4px;">
+                     <h3 style="margin:0 0 8px 0;font-size:11px;color:#fff;">REAL-TIME MAPPING METRICS</h3>
+                     <div id="metrics-content">Loading...</div>
+                     <button onclick="window.replayMapping()" style="margin-top:10px;width:100%;padding:6px;background:rgba(255,100,100,0.2);border:1px solid rgba(255,100,100,0.5);color:rgba(255,100,100,0.9);cursor:pointer;border-radius:2px;font-family:monospace;font-weight:bold;">REPLAY MAPPING</button>
+                     <div id="replay-status" style="margin-top:5px;font-size:9px;color:#aaa;"></div>
                   </div>
                   <!-- Phase 4: Live Mapping Status Overlay -->
                   <div id="live-map-overlay"
@@ -4536,7 +4550,7 @@
 
         // Attempt 3D model reload if not yet loaded
         if (!STATE.pointCloud) {
-          createPointCloud();
+          window.createPointCloud();
         }
 
         // Periodic world state + map state polling
@@ -5492,7 +5506,7 @@
         }
         
         const badge = document.getElementById('model-status-badge');
-        if(badge && badge.innerHTML.includes('MODEL:')) {
+        if(badge && badge.innerHTML.includes('MAPPING DEMO')) {
           badge.innerHTML = badge.innerHTML.split('<br>')[0] + '<br>RENDER: ' + mode;
         }
         
@@ -5537,7 +5551,7 @@
       createTacticalBuilding();
 
       // Create point cloud particles
-      createPointCloud();
+      window.createPointCloud();
 
       // Handle resize
       window.addEventListener('resize', onResize);
@@ -5671,14 +5685,20 @@
       scene.add(buildingGroup);
     }
 
-    function createPointCloud() {
+    window.currentModelType = 'iceland';
+    window.createPointCloud = function() {
       // Load the REAL reconstructed point cloud from the FastAPI backend
       const loc = window.location;
       const isPort8000 = loc.port === '8000';
       const backendBase = isPort8000
         ? ''
         : `http://${(loc.hostname && loc.hostname !== '') ? loc.hostname : '127.0.0.1'}:8000`;
-      const PLY_URL = `${backendBase}/models/fused.ply`;
+      
+      let PLY_URL = `${backendBase}/models/fused.ply`;
+      if (window.currentModelType === 'mapping') PLY_URL = `${backendBase}/models/mapping_demo.ply`;
+      if (window.currentModelType === 'mapping_v2') PLY_URL = `${backendBase}/models/mapping_demo_v2.ply`;
+      if (window.currentModelType === 'mapping_v3') PLY_URL = `${backendBase}/models/mapping_demo_v3.ply`;
+      
       const badge = document.getElementById('model-status-badge');
       if (badge) { badge.style.display = 'block'; badge.textContent = 'LOADING 3D MODEL…'; }
 
@@ -5689,8 +5709,9 @@
         const hasColor = geo.hasAttribute('color');
         const pointCount = geo.attributes.position.count;
 
+        const pSize = (window.currentModelType === 'mapping' || window.currentModelType === 'mapping_v2') ? 0.8 : ((window.currentModelType === 'mapping_v3') ? 0.2 : 0.04);
         const mat = new THREE.PointsMaterial({
-          size: 0.04, // Smaller size for 1.5M points
+          size: pSize, // Dynamic size based on mode
           vertexColors: hasColor,
           color: hasColor ? 0xffffff : 0x00E5FF,
           transparent: true,
@@ -5705,11 +5726,14 @@
 
         STATE.pointCloud = new THREE.Points(geo, mat);
 
-        // COLMAP uses Y-down / Z-forward; rotate to Three.js Y-up
-        STATE.pointCloud.rotation.x = Math.PI;
-        // Fix the sideways/awkward canyon orientation in visualization only
-        // by rotating the mesh in Three.js (no permanent PLY change)
-        STATE.pointCloud.rotation.z = -Math.PI / 2;
+        if (window.currentModelType === 'iceland') {
+          // COLMAP uses Y-down / Z-forward; rotate to Three.js Y-up
+          STATE.pointCloud.rotation.x = Math.PI;
+          // Fix the sideways/awkward canyon orientation in visualization only
+          STATE.pointCloud.rotation.z = -Math.PI / 2;
+        } else {
+          STATE.pointCloud.rotation.x = Math.PI;
+        }
 
         // Auto-center camera on the actual point cloud
         const box = new THREE.Box3().setFromObject(STATE.pointCloud);
@@ -5733,8 +5757,15 @@
         }
 
         // Auto-choose a sensible viewing distance
-        const viewDist = maxDim * 1.2;
-        camera.position.set(center.x + viewDist * 0.8, center.y + viewDist * 0.6, center.z + viewDist * 0.4);
+        if (window.currentModelType === 'mapping' || window.currentModelType === 'mapping_v2' || window.currentModelType === 'mapping_v3') {
+          // Sparse SLAM map: get closer
+          const viewDist = maxDim * 0.4;
+          camera.position.set(center.x, center.y + viewDist * 0.5, center.z + viewDist);
+        } else {
+          // Dense canyon
+          const viewDist = maxDim * 1.2;
+          camera.position.set(center.x + viewDist * 0.8, center.y + viewDist * 0.6, center.z + viewDist * 0.4);
+        }
         controls.update();
 
         // Update status badge
@@ -5742,7 +5773,11 @@
           badge.style.display = 'block';
           badge.style.borderColor = 'rgba(0,229,255,0.6)';
           badge.style.color = 'rgba(0,229,255,0.9)';
-          badge.innerHTML = 'MODEL: ICELAND CANYON DENSE · ' + pointCount.toLocaleString() + ' POINTS<br>RENDER: ' + (window.fsrMode || 'FSR QUALITY');
+          let title = 'MODEL: ICELAND CANYON DENSE';
+          if (window.currentModelType === 'mapping') title = 'FINAL MAPPING OUTPUT V1';
+          if (window.currentModelType === 'mapping_v2') title = 'FINAL MAPPING OUTPUT V2 (SPARSE)';
+          if (window.currentModelType === 'mapping_v3') title = 'FINAL MAPPING OUTPUT V3 (DENSE)';
+          badge.innerHTML = `${title} · ` + pointCount.toLocaleString() + ' POINTS<br>RENDER: ' + (window.fsrMode || 'FSR QUALITY');
         }
 
         // Log to the detection log
@@ -7274,6 +7309,90 @@
       setInterval(updateFeatureModeIndicator, 10000);
 
     })(); // end wireAllInertElements
+
+    window.switchModel = function(type) {
+      window.currentModelType = type;
+      
+      const tabI = document.getElementById('tab-iceland');
+      const tabM = document.getElementById('tab-mapping');
+      const tabM2 = document.getElementById('tab-mapping-v2');
+      
+      if (tabI) {
+        tabI.style.background = (type === 'iceland') ? 'rgba(0,229,255,0.2)' : 'rgba(0,0,0,0.7)';
+        tabI.style.color = (type === 'iceland') ? 'rgba(0,229,255,0.9)' : '#aaa';
+        tabI.style.border = (type === 'iceland') ? '1px solid rgba(0,229,255,0.5)' : '1px solid #555';
+      }
+      if (tabM) {
+        tabM.style.background = (type === 'mapping') ? 'rgba(0,229,255,0.2)' : 'rgba(0,0,0,0.7)';
+        tabM.style.color = (type === 'mapping') ? 'rgba(0,229,255,0.9)' : '#aaa';
+        tabM.style.border = (type === 'mapping') ? '1px solid rgba(0,229,255,0.5)' : '1px solid #555';
+      }
+      if (tabM2) {
+        tabM2.style.background = (type === 'mapping_v2') ? 'rgba(0,229,255,0.2)' : 'rgba(0,0,0,0.7)';
+        tabM2.style.color = (type === 'mapping_v2') ? 'rgba(0,229,255,0.9)' : '#aaa';
+        tabM2.style.border = (type === 'mapping_v2') ? '1px solid rgba(0,229,255,0.5)' : '1px solid #555';
+
+        const tabM3 = document.getElementById('tab-mapping-v3');
+        if (tabM3) {
+            tabM3.style.background = (type === 'mapping_v3') ? 'rgba(0,229,255,0.2)' : 'rgba(0,0,0,0.7)';
+            tabM3.style.color = (type === 'mapping_v3') ? 'rgba(0,229,255,0.9)' : '#aaa';
+            tabM3.style.border = (type === 'mapping_v3') ? '1px solid rgba(0,229,255,0.5)' : '1px solid #555';
+        }      }
+      
+      const panel = document.getElementById('mapping-metrics-panel');
+      if (panel) {
+        panel.style.display = (type === 'mapping' || type === 'mapping_v2' || type === 'mapping_v3') ? 'block' : 'none';
+      }
+
+      const coopOverlay = document.getElementById('coop-map-overlay');
+      if (coopOverlay) {
+        coopOverlay.style.display = (type === 'mapping' || type === 'mapping_v2' || type === 'mapping_v3') ? 'none' : 'block';
+      }
+
+      const liveOverlay = document.getElementById('live-map-overlay');
+      if (liveOverlay) {
+        liveOverlay.style.display = (type === 'mapping' || type === 'mapping_v2' || type === 'mapping_v3') ? 'none' : 'block';
+      }
+      
+      if (window.createPointCloud) window.createPointCloud();
+      
+      if(type === 'mapping' || type === 'mapping_v2' || type === 'mapping_v3') {
+        const loc = window.location;
+        const backendBase = loc.port === '8000' ? '' : `http://${(loc.hostname && loc.hostname !== '') ? loc.hostname : '127.0.0.1'}:8000`;
+        let metricsFile = 'mapping_metrics.json';
+        if (type === 'mapping_v2') metricsFile = 'mapping_metrics_v2.json';
+        if (type === 'mapping_v3') metricsFile = 'mapping_metrics_v3.json'; // fallback to v2 or v3 if it exists
+        fetch(`${backendBase}/models/${metricsFile}`)
+          .then(res => res.json())
+          .then(data => {
+             const m = data.MAPPING;
+             const s = data.SOURCE;
+             const mc = document.getElementById('metrics-content');
+             if (mc) {
+               mc.innerHTML = `
+                 Source: ${s.segment} video<br>
+                 Frames: ${s.frames_extracted}<br>
+                 Keyframes: ${m.keyframes}<br>
+                 Pose Successes: ${m.pose_successes}<br>
+                 Pose Failures: ${m.pose_failures} among accepted<br>
+                 Final Map Points: ${m.final_map_points}<br>
+                 Processing latency: ${m.average_latency}/frame<br>
+                 Effective capability: ${m.effective_fps} FPS<br><br>
+                 <span style="color:#aaa;font-size:9px;">TRAJECTORY: AVAILABLE DURING LIVE REPLAY</span>
+               `;
+             }
+          }).catch(e => console.error(e));
+      }
+    };
+
+    window.replayMapping = function() {
+      const statusDiv = document.getElementById('replay-status');
+      if (statusDiv) {
+        statusDiv.textContent = 'Replay sequence initiated! The point cloud map is now progressively building. Please check the dashboard stream... (To see the final static result again, click the REAL-TIME MAPPING tab above).';
+      }
+      console.log("Triggered replay mode. Ensure ws_replay.py is running in the background.");
+    };
+
   </script>
 </body>
 

@@ -1,0 +1,23 @@
+{
+    "SOURCE": {
+        "video_filename": "videoplayback.mp4",
+        "segment": "45.0s - 55.0s",
+        "resolution": "1920x1080",
+        "fps": 8,
+        "frames_extracted": 80
+    },
+    "MAPPING": {
+        "frames_processed": 80,
+        "keyframes": 18,
+        "pose_successes": 18,
+        "pose_failures": 0,
+        "pose_success_rate": "100.0%",
+        "map_updates": 80,
+        "points_inserted": 129,
+        "points_fused": 0,
+        "final_map_points": 129,
+        "average_latency": "99.1ms",
+        "maximum_latency": "206.9ms",
+        "effective_fps": "10.1"
+    }
+}
