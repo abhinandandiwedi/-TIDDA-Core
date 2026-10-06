@@ -3523,8 +3523,16 @@
                   <canvas id="three-canvas"></canvas>
                   <!-- Real Model Status Badge -->
                   <div id="model-status-badge"
-                    style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;border-radius:3px;background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);color:rgba(0,229,255,0.6);letter-spacing:1px;pointer-events:none;display:none;">
+                    style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 12px;border-radius:3px;background:rgba(0,0,0,0.7);border:1px solid rgba(0,229,255,0.3);color:rgba(0,229,255,0.6);letter-spacing:1px;pointer-events:none;display:none;text-align:center;line-height:1.4;">
                     LOADING 3D MODEL…</div>
+                  <!-- FSR Controls -->
+                  <div id="fsr-controls" style="position:absolute;top:45px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;background:rgba(0,0,0,0.7);padding:6px;border-radius:4px;border:1px solid rgba(0,229,255,0.2);">
+                    <button onclick="window.setFsrMode('NATIVE', 1.0)" style="font-size:9px;padding:3px 6px;background:transparent;border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;" id="fsr-btn-NATIVE">NATIVE</button>
+                    <button onclick="window.setFsrMode('FSR ULTRA QUALITY', 0.77)" style="font-size:9px;padding:3px 6px;background:transparent;border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;" id="fsr-btn-FSR-ULTRA-QUALITY">ULTRA QUALITY</button>
+                    <button onclick="window.setFsrMode('FSR QUALITY', 0.67)" style="font-size:9px;padding:3px 6px;background:rgba(0,229,255,0.2);border:1px solid rgba(0,229,255,0.5);color:rgba(0,229,255,0.9);cursor:pointer;border-radius:2px;" id="fsr-btn-FSR-QUALITY">QUALITY</button>
+                    <button onclick="window.setFsrMode('FSR PERFORMANCE', 0.5)" style="font-size:9px;padding:3px 6px;background:transparent;border:1px solid #555;color:#aaa;cursor:pointer;border-radius:2px;" id="fsr-btn-FSR-PERFORMANCE">PERFORMANCE</button>
+                    <div id="fps-display" style="color:var(--cyan);font-family:monospace;font-size:10px;line-height:20px;margin-left:8px;min-width:70px;text-align:right;">0 FPS</div>
+                  </div>
                   <!-- Phase 4: Live Mapping Status Overlay -->
                   <div id="live-map-overlay"
                     style="position:absolute;bottom:10px;left:10px;z-index:20;font-family:'JetBrains Mono',monospace;font-size:9px;padding:6px 10px;border-radius:4px;background:rgba(0,0,0,0.85);border:1px solid rgba(0,229,255,0.2);color:rgba(200,215,230,0.8);letter-spacing:0.5px;display:none;min-width:180px;">
@@ -5411,13 +5419,102 @@
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.2;
 
+      // --- FSR SPATIAL UPSCALING PIPELINE ---
+      window.fsrMode = 'FSR QUALITY';
+      window.fsrScale = 0.67;
+      window.renderTarget = new THREE.WebGLRenderTarget(container.clientWidth * window.fsrScale, container.clientHeight * window.fsrScale, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat
+      });
+      window.fsrCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      window.fsrScene = new THREE.Scene();
+      
+      const fsrVertexShader = `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position, 1.0);
+        }
+      `;
+      const fsrFragmentShader = `
+        uniform sampler2D tDiffuse;
+        uniform vec2 resolution;
+        uniform float sharpness;
+        varying vec2 vUv;
+        void main() {
+          vec2 step = 1.0 / resolution;
+          vec4 texC = texture2D(tDiffuse, vUv);
+          vec4 texN = texture2D(tDiffuse, vUv + vec2(0.0, step.y));
+          vec4 texS = texture2D(tDiffuse, vUv + vec2(0.0, -step.y));
+          vec4 texE = texture2D(tDiffuse, vUv + vec2(step.x, 0.0));
+          vec4 texW = texture2D(tDiffuse, vUv + vec2(-step.x, 0.0));
+          vec4 min4 = min(min(texN, texS), min(texE, texW));
+          vec4 max4 = max(max(texN, texS), max(texE, texW));
+          vec4 minColor = min(min4, texC);
+          vec4 maxColor = max(max4, texC);
+          float contrast = length(maxColor.rgb - minColor.rgb);
+          float amount = sharpness * (1.0 - smoothstep(0.0, 0.8, contrast));
+          vec4 sharpened = texC + (texC * 4.0 - texN - texS - texE - texW) * amount;
+          gl_FragColor = vec4(clamp(sharpened.rgb, 0.0, 1.0), texC.a);
+        }
+      `;
+      window.fsrMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          tDiffuse: { value: window.renderTarget.texture },
+          resolution: { value: new THREE.Vector2(container.clientWidth * window.fsrScale, container.clientHeight * window.fsrScale) },
+          sharpness: { value: 0.25 } // FidelityFX style contrast adaptive sharpening
+        },
+        vertexShader: fsrVertexShader,
+        fragmentShader: fsrFragmentShader,
+        depthWrite: false,
+        depthTest: false
+      });
+      window.fsrScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), window.fsrMaterial));
+      
+      window.setFsrMode = function(mode, scale) {
+        window.fsrMode = mode;
+        window.fsrScale = scale;
+        
+        ['NATIVE', 'FSR-ULTRA-QUALITY', 'FSR-QUALITY', 'FSR-PERFORMANCE'].forEach(m => {
+          const btn = document.getElementById('fsr-btn-' + m);
+          if(btn) {
+            btn.style.background = 'transparent';
+            btn.style.border = '1px solid #555';
+            btn.style.color = '#aaa';
+          }
+        });
+        const activeBtn = document.getElementById('fsr-btn-' + mode.replace(/ /g, '-'));
+        if(activeBtn) {
+          activeBtn.style.background = 'rgba(0,229,255,0.2)';
+          activeBtn.style.border = '1px solid rgba(0,229,255,0.5)';
+          activeBtn.style.color = 'rgba(0,229,255,0.9)';
+        }
+        
+        const badge = document.getElementById('model-status-badge');
+        if(badge && badge.innerHTML.includes('MODEL:')) {
+          badge.innerHTML = badge.innerHTML.split('<br>')[0] + '<br>RENDER: ' + mode;
+        }
+        
+        const container = document.getElementById('map-container');
+        if(mode !== 'NATIVE' && container) {
+          window.renderTarget.setSize(container.clientWidth * scale, container.clientHeight * scale);
+          window.fsrMaterial.uniforms.resolution.value.set(container.clientWidth * scale, container.clientHeight * scale);
+        }
+      };
+      // ----------------------------------------------
+
       // Controls
       controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enabled = true;
+      controls.enableRotate = true;
+      controls.enableZoom = true;
+      controls.enablePan = true;
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.minDistance = 10;
-      controls.maxDistance = 150;
-      controls.maxPolarAngle = Math.PI / 2.1;
+      controls.minDistance = 1;
+      controls.maxDistance = 1500;
+      controls.maxPolarAngle = Math.PI; // allow full rotation
       controls.target.set(0, 5, 0);
 
       // Lighting
@@ -5444,6 +5541,58 @@
 
       // Handle resize
       window.addEventListener('resize', onResize);
+
+      // --- CUSTOM ROLL HANDLER ---
+      let isRolling = false;
+      let previousPointerX = 0;
+
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (!camera || !controls) return;
+        if (e.key === 'q' || e.key === 'Q') { rollCamera(0.05); }
+        if (e.key === 'e' || e.key === 'E') { rollCamera(-0.05); }
+        if (e.key === 'r' || e.key === 'R') { resetCamera(); }
+        if (e.key === 'Shift') { controls.enabled = false; }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'Shift') { controls.enabled = true; }
+      });
+
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        if (e.shiftKey) {
+          isRolling = true;
+          previousPointerX = e.clientX;
+          controls.enabled = false;
+        }
+      });
+
+      renderer.domElement.addEventListener('pointermove', (e) => {
+        if (isRolling) {
+          const deltaX = e.clientX - previousPointerX;
+          rollCamera(-deltaX * 0.01);
+          previousPointerX = e.clientX;
+        }
+      });
+
+      window.addEventListener('pointerup', (e) => {
+        if (isRolling) {
+          isRolling = false;
+          controls.enabled = true;
+        }
+      });
+
+      function rollCamera(angle) {
+        if (!camera || !controls) return;
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        const axis = forward.clone().normalize();
+        const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+        camera.up.applyQuaternion(quaternion);
+        camera.lookAt(controls.target);
+        controls.update();
+      }
+      // ----------------------------
 
       // Animation loop
       animate();
@@ -5541,7 +5690,7 @@
         const pointCount = geo.attributes.position.count;
 
         const mat = new THREE.PointsMaterial({
-          size: 0.15,
+          size: 0.04, // Smaller size for 1.5M points
           vertexColors: hasColor,
           color: hasColor ? 0xffffff : 0x00E5FF,
           transparent: true,
@@ -5558,32 +5707,34 @@
 
         // COLMAP uses Y-down / Z-forward; rotate to Three.js Y-up
         STATE.pointCloud.rotation.x = Math.PI;
+        // Fix the sideways/awkward canyon orientation in visualization only
+        // by rotating the mesh in Three.js (no permanent PLY change)
+        STATE.pointCloud.rotation.z = -Math.PI / 2;
 
-        // Auto-center and auto-scale to fit the viewport
+        // Auto-center camera on the actual point cloud
         const box = new THREE.Box3().setFromObject(STATE.pointCloud);
         const center = new THREE.Vector3();
         box.getCenter(center);
-        STATE.pointCloud.position.sub(center);
+        
+        // DO NOT modify STATE.pointCloud.position to preserve true coordinates!
+        // Just aim the camera controls at the actual spatial center.
+        controls.target.copy(center);
 
+        // Calculate size for viewing distance
         const size = new THREE.Vector3();
         box.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z);
-        const targetSize = 40; // fit within a ~40 unit scene radius
-        if (maxDim > 0) {
-          const scale = targetSize / maxDim;
-          STATE.pointCloud.scale.setScalar(scale);
-        }
 
         scene.add(STATE.pointCloud);
 
-        // Hide the mock building geometry — the real model replaces it
+        // Hide the mock building geometry
         if (buildingGroup) {
           buildingGroup.visible = false;
         }
 
-        // Re-aim the camera at the center of the real model
-        controls.target.set(0, 0, 0);
-        camera.position.set(30, 25, 30);
+        // Auto-choose a sensible viewing distance
+        const viewDist = maxDim * 1.2;
+        camera.position.set(center.x + viewDist * 0.8, center.y + viewDist * 0.6, center.z + viewDist * 0.4);
         controls.update();
 
         // Update status badge
@@ -5591,7 +5742,7 @@
           badge.style.display = 'block';
           badge.style.borderColor = 'rgba(0,229,255,0.6)';
           badge.style.color = 'rgba(0,229,255,0.9)';
-          badge.textContent = 'REAL 3D MODEL — HOUSE V1 · ' + pointCount.toLocaleString() + ' POINTS';
+          badge.innerHTML = 'MODEL: ICELAND CANYON DENSE · ' + pointCount.toLocaleString() + ' POINTS<br>RENDER: ' + (window.fsrMode || 'FSR QUALITY');
         }
 
         // Log to the detection log
@@ -5723,7 +5874,30 @@
         }
       });
 
-      renderer.render(scene, camera);
+      // FPS Calculation
+      if (!window.fpsCounter) window.fpsCounter = { frames: 0, lastTime: performance.now() };
+      window.fpsCounter.frames++;
+      const now = performance.now();
+      if (now - window.fpsCounter.lastTime >= 1000) {
+        const fps = window.fpsCounter.frames;
+        const frameTime = (1000 / fps).toFixed(1);
+        const fpsDisplay = document.getElementById('fps-display');
+        if (fpsDisplay) fpsDisplay.textContent = fps + ' FPS (' + frameTime + 'ms)';
+        window.fpsCounter.frames = 0;
+        window.fpsCounter.lastTime = now;
+      }
+
+      // FSR Render Logic
+      if (window.fsrMode === 'NATIVE') {
+        renderer.setRenderTarget(null);
+        renderer.render(scene, camera);
+      } else {
+        renderer.setRenderTarget(window.renderTarget);
+        renderer.render(scene, camera);
+        
+        renderer.setRenderTarget(null);
+        renderer.render(window.fsrScene, window.fsrCamera);
+      }
     }
 
     function onResize() {
@@ -5732,12 +5906,30 @@
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
+      
+      if (window.fsrMode && window.fsrMode !== 'NATIVE') {
+        window.renderTarget.setSize(container.clientWidth * window.fsrScale, container.clientHeight * window.fsrScale);
+        window.fsrMaterial.uniforms.resolution.value.set(container.clientWidth * window.fsrScale, container.clientHeight * window.fsrScale);
+      }
     }
 
     function resetCamera() {
       if (camera && controls) {
-        camera.position.set(30, 25, 30);
-        controls.target.set(0, 0, 0);
+        camera.up.set(0, 1, 0); // RESET UP VECTOR!
+        if (STATE.pointCloud) {
+          const box = new THREE.Box3().setFromObject(STATE.pointCloud);
+          const center = new THREE.Vector3();
+          box.getCenter(center);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const viewDist = maxDim * 1.2;
+          camera.position.set(center.x + viewDist * 0.8, center.y + viewDist * 0.6, center.z + viewDist * 0.4);
+          controls.target.copy(center);
+        } else {
+          camera.position.set(30, 25, 30);
+          controls.target.set(0, 0, 0);
+        }
         controls.update();
       }
     }
